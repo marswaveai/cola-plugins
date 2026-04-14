@@ -1,0 +1,32 @@
+{
+  "name": "cola-plugin-wechat",
+  "version": "0.1.0",
+  "description": "WeChat channel plugin for Cola",
+  "type": "module",
+  "cola": {
+    "channel": {
+      "id": "wechat",
+      "label": "WeChat",
+      "description": "WeChat messaging via iLink bot protocol",
+      "entry": "./dist/index.js",
+      "minSdkVersion": "0.1.0"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cola/plugin-sdk": "^0.1.0",
+    "qrcode-terminal": "0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "silk-wasm": "^3.7.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

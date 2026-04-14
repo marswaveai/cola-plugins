@@ -1,0 +1,19 @@
+{
+  "name": "cola-plugins",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r --filter './plugins/*' run build",
+    "typecheck": "pnpm -r --filter './plugins/*' run typecheck",
+    "build:registry": "tsx scripts/build-registry.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@cola/plugin-sdk": "file:../cola-2/packages/plugin-sdk"
+    },
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

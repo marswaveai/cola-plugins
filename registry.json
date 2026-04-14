@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "wechat",
+      "label": "WeChat",
+      "description": "WeChat messaging via iLink bot protocol",
+      "version": "0.1.0",
+      "minSdkVersion": "0.1.0",
+      "downloadUrl": "https://github.com/marswaveai/cola-plugins/releases/download/wechat@0.1.0/wechat-0.1.0.tar.gz"
+    }
+  ]
+}

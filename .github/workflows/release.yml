@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/*/package.json'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Detect version changes
+        id: versions
+        run: |
+          RELEASES=""
+          for dir in plugins/*/; do
+            plugin=$(basename "$dir")
+            pkg="$dir/package.json"
+            [ -f "$pkg" ] || continue
+
+            NEW_VER=$(node -p "require('./$pkg').version")
+            OLD_VER=$(git show HEAD~1:"$pkg" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version" 2>/dev/null || echo "")
+
+            if [ "$NEW_VER" != "$OLD_VER" ]; then
+              RELEASES="$RELEASES $plugin:$NEW_VER"
+            fi
+          done
+          echo "releases=$RELEASES" >> "$GITHUB_OUTPUT"
+
+      - name: Build & release
+        if: steps.versions.outputs.releases != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for entry in ${{ steps.versions.outputs.releases }}; do
+            plugin="${entry%%:*}"
+            version="${entry##*:}"
+            tag="${plugin}@${version}"
+
+            echo "=== Releasing $tag ==="
+            pnpm --filter "./plugins/$plugin" run build
+
+            tarball="${plugin}-${version}.tar.gz"
+            tar -czf "$tarball" -C "plugins/$plugin" dist/ package.json
+
+            gh release create "$tag" "$tarball" \
+              --title "$tag" \
+              --notes "Release $plugin v$version"
+          done
+
+      - name: Rebuild registry
+        run: |
+          pnpm build:registry
+          if git diff --quiet registry.json; then
+            echo "registry.json unchanged"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add registry.json
+            git commit -m "chore: update registry.json"
+            git push
+          fi
