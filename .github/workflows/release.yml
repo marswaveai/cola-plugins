@@ -56,6 +56,13 @@ jobs:
             tag="${plugin}@${version}"
 
             echo "=== Releasing $tag ==="
+
+            # Skip if this version is already released
+            if gh release view "$tag" &>/dev/null; then
+              echo "Release $tag already exists, skipping"
+              continue
+            fi
+
             pnpm --filter "./plugins/$plugin" run build
 
             # Stage a self-contained directory with production deps
