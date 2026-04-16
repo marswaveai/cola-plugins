@@ -1,4 +1,4 @@
-import type { PluginLogger } from '@cola/plugin-sdk'
+import type { PluginLogger } from 'cola-plugin-sdk'
 
 const SESSION_PAUSE_DURATION_MS = 60 * 60 * 1000
 

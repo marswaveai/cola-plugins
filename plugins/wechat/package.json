@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cola/plugin-sdk": "^0.1.0",
+    "cola-plugin-sdk": "^0.1.0",
     "qrcode-terminal": "0.12.0"
   },
   "devDependencies": {

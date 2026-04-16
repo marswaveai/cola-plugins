@@ -1,8 +1,8 @@
 import path from 'node:path'
 import os from 'node:os'
 
-import { defineChannel } from '@cola/plugin-sdk'
-import type { GatewayContext, OutboundContext, ChannelStatusResult } from '@cola/plugin-sdk'
+import { defineChannel } from 'cola-plugin-sdk'
+import type { GatewayContext, OutboundContext, ChannelStatusResult } from 'cola-plugin-sdk'
 import { setApiLogger, setRouteTag, sendTyping as sendTypingApi } from './api/client.js'
 import { setSessionGuardLogger } from './api/session-guard.js'
 import { TypingStatus } from './api/types.js'

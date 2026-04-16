@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import type { PluginLogger, PluginRuntime, DeliverFn } from '@cola/plugin-sdk'
-import { createPollLoop } from '@cola/plugin-sdk'
+import type { PluginLogger, PluginRuntime, DeliverFn } from 'cola-plugin-sdk'
+import { createPollLoop } from 'cola-plugin-sdk'
 import { getUpdates } from '../api/client.js'
 import { WeixinConfigManager } from '../api/config-cache.js'
 import { SESSION_EXPIRED_ERRCODE, pauseSession, isSessionPaused } from '../api/session-guard.js'

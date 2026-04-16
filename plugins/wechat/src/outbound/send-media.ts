@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import type { PluginLogger } from '@cola/plugin-sdk'
+import type { PluginLogger } from 'cola-plugin-sdk'
 import type { WeixinApiOptions } from '../api/client.js'
 import { getMimeFromFilename } from '../media/mime.js'
 import { sendFileMessageWeixin, sendImageMessageWeixin, sendVideoMessageWeixin } from './send.js'

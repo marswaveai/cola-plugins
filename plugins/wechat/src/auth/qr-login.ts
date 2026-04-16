@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import type { PluginLogger, PluginRuntime } from '@cola/plugin-sdk'
+import type { PluginLogger, PluginRuntime } from 'cola-plugin-sdk'
 import { apiGetFetch } from '../api/client.js'
 import { redactToken } from '../util/redact.js'
 import {

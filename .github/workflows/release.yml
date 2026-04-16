@@ -58,12 +58,21 @@ jobs:
             echo "=== Releasing $tag ==="
             pnpm --filter "./plugins/$plugin" run build
 
+            # Stage a self-contained directory with production deps
+            staging="staging/$plugin"
+            mkdir -p "$staging"
+            cp "plugins/$plugin/package.json" "$staging/"
+            cp -r "plugins/$plugin/dist" "$staging/dist"
+            (cd "$staging" && npm install --omit=dev --ignore-scripts)
+
             tarball="${plugin}-${version}.tar.gz"
-            tar -czf "$tarball" -C "plugins/$plugin" dist/ package.json
+            tar -czf "$tarball" -C "$staging" .
 
             gh release create "$tag" "$tarball" \
               --title "$tag" \
               --notes "Release $plugin v$version"
+
+            rm -rf "$staging"
           done
 
       - name: Rebuild registry

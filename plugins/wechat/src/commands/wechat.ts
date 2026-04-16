@@ -1,4 +1,4 @@
-import type { PluginCommandContext, PluginCommandResult } from '@cola/plugin-sdk'
+import type { PluginCommandContext, PluginCommandResult } from 'cola-plugin-sdk'
 import { listAccountIds, resolveAccount } from '../auth/accounts.js'
 import { isSessionPaused, getRemainingPauseMs } from '../api/session-guard.js'
 import { getConfigManagerForAccount } from '../gateway/monitor.js'

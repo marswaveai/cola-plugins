@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 
-import type { PluginLogger } from '@cola/plugin-sdk'
+import type { PluginLogger } from 'cola-plugin-sdk'
 import { redactBody, redactUrl } from '../util/redact.js'
 import type {
   BaseInfo,

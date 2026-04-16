@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import type { PluginLogger } from '@cola/plugin-sdk'
+import type { PluginLogger } from 'cola-plugin-sdk'
 import type { WeixinApiOptions } from '../api/client.js'
 import { getUploadUrl } from '../api/client.js'
 import { UploadMediaType } from '../api/types.js'
