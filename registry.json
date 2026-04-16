@@ -2,6 +2,14 @@
   "version": 1,
   "plugins": [
     {
+      "id": "feishu",
+      "label": "Feishu",
+      "description": "Feishu/Lark messaging via official bot API",
+      "version": "0.1.0",
+      "minSdkVersion": "0.1.0",
+      "downloadUrl": "https://github.com/marswaveai/cola-plugins/releases/download/feishu@0.1.0/feishu-0.1.0.tar.gz"
+    },
+    {
       "id": "wechat",
       "label": "WeChat",
       "description": "WeChat messaging via iLink bot protocol",

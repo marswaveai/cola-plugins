@@ -1,0 +1,31 @@
+{
+  "name": "cola-plugin-feishu",
+  "version": "0.1.0",
+  "description": "Feishu/Lark channel plugin for Cola",
+  "type": "module",
+  "cola": {
+    "channel": {
+      "id": "feishu",
+      "label": "Feishu",
+      "description": "Feishu/Lark messaging via official bot API",
+      "entry": "./dist/index.js",
+      "minSdkVersion": "0.1.0"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cola-plugin-sdk": "^0.1.0",
+    "@larksuiteoapi/node-sdk": "^1.60.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
