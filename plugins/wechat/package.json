@@ -1,6 +1,6 @@
 {
   "name": "cola-plugin-wechat",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "WeChat channel plugin for Cola",
   "type": "module",
   "cola": {
