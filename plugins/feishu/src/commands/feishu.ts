@@ -4,7 +4,6 @@ import { redactSecret } from '../util/redact.js'
 
 export function createFeishuCommands(
   getMonitors: () => Map<string, MonitorHandle>,
-  getConfig: () => Readonly<Record<string, unknown>>,
 ): PluginCommandDefinition[] {
   return [
     {
@@ -21,15 +20,14 @@ export function createFeishuCommands(
             return { reply: 'No Feishu accounts active.' }
           }
           const lines = ['**Feishu Status**', '']
-          for (const [id, handle] of monitors) {
+          for (const [id] of monitors) {
             lines.push(`- **${id}**: connected (client ready)`)
           }
           return { reply: lines.join('\n') }
         }
 
         if (sub === 'accounts') {
-          const config = getConfig()
-          const accounts = (config.accounts ?? {}) as Record<string, Record<string, unknown>>
+          const accounts = (ctx.config.accounts ?? {}) as Record<string, Record<string, unknown>>
           if (Object.keys(accounts).length === 0) {
             return { reply: 'No Feishu accounts configured.' }
           }

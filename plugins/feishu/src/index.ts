@@ -1,11 +1,15 @@
 import { defineChannel } from 'cola-plugin-sdk'
-import type { GatewayContext, OutboundContext, ChannelStatusResult } from 'cola-plugin-sdk'
+import type {
+  GatewayContext,
+  OutboundContext,
+  ChannelStatusResult,
+  ChannelMessageActionAdapter,
+} from 'cola-plugin-sdk'
 import type { FeishuPluginConfig } from './api/types.js'
 import { setPluginDir, resolvePluginDir, parseAccountConfigs } from './auth/accounts.js'
 import { startMonitor, type MonitorHandle } from './gateway/monitor.js'
 import { sendText, sendMedia } from './outbound/send.js'
 import { createFeishuCommands } from './commands/feishu.js'
-import { createReactionTools } from './tools/reaction.js'
 import { clearClientCache } from './api/client.js'
 
 type FeishuGatewayState = {
@@ -46,7 +50,6 @@ export default defineChannel<FeishuGatewayState>({
       image: true,
       file: true,
       markdown: true,
-      // reaction: true, // TODO: requires SDK update (send.reaction not in published SDK yet)
     },
     limits: {
       maxTextLength: 30000,
@@ -55,10 +58,7 @@ export default defineChannel<FeishuGatewayState>({
 
   sessionMode: 'shared',
 
-  commands: createFeishuCommands(
-    () => activeMonitors,
-    () => ({}),
-  ),
+  commands: createFeishuCommands(() => activeMonitors),
 
   gateway: {
     async start(ctx: GatewayContext<FeishuGatewayState>) {
@@ -148,9 +148,80 @@ export default defineChannel<FeishuGatewayState>({
     },
   },
 
-  agentTools: {
-    getTools(_ctx) {
-      return createReactionTools(activeMonitors)
+  messaging: {
+    describeMessageTool: () => ({
+      actions: ['send', 'react'],
+      schema: {
+        properties: {
+          emoji: {
+            type: 'string',
+            description:
+              'Feishu emoji_type for the react action. Examples: THUMBSUP, SMILE, HEART, OK, FACEPALM, JIAYI, COFFEE, FIREWORKS, MUSCLE.',
+          },
+        },
+        visibility: 'current-channel',
+      },
+    }),
+
+    async handleAction(ctx) {
+      const handle = resolveMonitorForUser(ctx.channelUserId)
+      if (!handle) {
+        return { ok: false, hint: 'No active Feishu account for this user.' }
+      }
+
+      if (ctx.action === 'send') {
+        const text = typeof ctx.params.text === 'string' ? ctx.params.text : ''
+        const media = typeof ctx.params.media === 'string' ? ctx.params.media : ''
+        const caption = typeof ctx.params.caption === 'string' ? ctx.params.caption : ''
+        if (!text && !media) {
+          return { ok: false, hint: 'send requires at least one of `text` or `media`.' }
+        }
+        try {
+          if (media) {
+            const mediaType =
+              typeof ctx.params.mediaType === 'string' ? ctx.params.mediaType : 'application/octet-stream'
+            await sendMedia(handle.client, ctx.channelUserId, mediaType, media, handle.chatMap, ctx.logger)
+            if (caption) {
+              await sendText(handle.client, ctx.channelUserId, caption, handle.chatMap, ctx.logger)
+            }
+            return { ok: true, message: 'Sent media to Feishu.' }
+          }
+          await sendText(handle.client, ctx.channelUserId, text, handle.chatMap, ctx.logger)
+          return { ok: true, message: 'Sent text to Feishu.' }
+        } catch (err) {
+          return { ok: false, hint: `Feishu send failed: ${String(err)}` }
+        }
+      }
+
+      if (ctx.action === 'react') {
+        const emoji = typeof ctx.params.emoji === 'string' ? ctx.params.emoji : ''
+        if (!emoji) {
+          return { ok: false, hint: 'react requires `emoji` (Feishu emoji_type, e.g. THUMBSUP).' }
+        }
+        const messageId =
+          (typeof ctx.params.messageId === 'string' ? ctx.params.messageId : undefined) ??
+          (typeof ctx.toolContext.currentMessageId === 'string'
+            ? ctx.toolContext.currentMessageId
+            : undefined)
+        if (!messageId) {
+          return { ok: false, hint: 'react needs a messageId (from toolContext or params).' }
+        }
+        try {
+          const resp = await handle.client.im.messageReaction.create({
+            path: { message_id: messageId },
+            data: { reaction_type: { emoji_type: emoji } },
+          })
+          return {
+            ok: true,
+            message: 'Reacted to Feishu message.',
+            details: { reactionId: (resp as { reaction_id?: string })?.reaction_id },
+          }
+        } catch (err) {
+          return { ok: false, hint: `Feishu react failed: ${String(err)}` }
+        }
+      }
+
+      return { ok: false, hint: `Feishu plugin does not support action "${ctx.action}"` }
     },
-  },
+  } satisfies ChannelMessageActionAdapter,
 })

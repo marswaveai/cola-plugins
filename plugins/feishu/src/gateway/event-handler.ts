@@ -84,27 +84,20 @@ export function registerMessageHandler(
         return {}
       }
 
-      // Check identity binding
+      // Only deliver for bound users; unbound senders are ignored to avoid leaking access.
       const colaUserId = await runtime.identity.resolve(senderId)
       if (!colaUserId) {
-        // Auto-bind for convenience (feishu users are authenticated by the platform)
-        await runtime.identity.bind(senderId)
-        logger.info(`Auto-bound feishu user ${senderId}`)
+        logger.info(`feishu[${deps.accountId}]: ignoring message from unbound user ${senderId}`)
+        return {}
       }
 
-      // Deliver to Cola
-      // Note: metadata field requires SDK update — using type assertion for forward compatibility
       await deliver({
         channelUserId: senderId,
         message: text,
         attachments: parsed.attachments.length > 0 ? parsed.attachments : undefined,
-        metadata: {
-          messageId: message.message_id,
-          chatId: message.chat_id,
-          chatType: message.chat_type,
-          timestamp: Date.now(),
-        },
-      } as Parameters<typeof deliver>[0])
+        platformMessageId: message.message_id,
+        senderId,
+      })
 
       return {}
     },
