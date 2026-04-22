@@ -2,7 +2,12 @@ import path from 'node:path'
 import os from 'node:os'
 
 import { defineChannel } from 'cola-plugin-sdk'
-import type { GatewayContext, OutboundContext, ChannelStatusResult } from 'cola-plugin-sdk'
+import type {
+  GatewayContext,
+  OutboundContext,
+  ChannelStatusResult,
+  ChannelMessageActionAdapter,
+} from 'cola-plugin-sdk'
 import { setApiLogger, setRouteTag, sendTyping as sendTypingApi } from './api/client.js'
 import { setSessionGuardLogger } from './api/session-guard.js'
 import { TypingStatus } from './api/types.js'
@@ -244,6 +249,71 @@ export default defineChannel<WechatGatewayState>({
       })
     },
   },
+
+  messaging: {
+    describeMessageTool: () => ({
+      actions: ['send'],
+    }),
+    async handleAction(ctx) {
+      if (ctx.action !== 'send') {
+        return { ok: false, hint: `WeChat plugin does not support action "${ctx.action}"` }
+      }
+      const account = resolveDefaultAccount(ctx.config)
+      if (!account) {
+        return { ok: false, hint: 'No configured WeChat account. Run /wechat login first.' }
+      }
+
+      const text = typeof ctx.params.text === 'string' ? ctx.params.text : ''
+      const media = typeof ctx.params.media === 'string' ? ctx.params.media : ''
+      const caption = typeof ctx.params.caption === 'string' ? ctx.params.caption : ''
+
+      if (!text && !media) {
+        return { ok: false, hint: 'send requires at least one of `text` or `media`.' }
+      }
+
+      const contextToken = getContextToken(account.accountId, ctx.channelUserId)
+
+      try {
+        if (media) {
+          let localPath: string
+          if (isLocalFilePath(media)) {
+            localPath = resolveLocalPath(media)
+          } else if (media.startsWith('http://') || media.startsWith('https://')) {
+            localPath = await downloadRemoteImageToTemp(media, MEDIA_OUTBOUND_TEMP_DIR, ctx.logger)
+          } else {
+            return { ok: false, hint: `Unsupported media URL scheme: ${media}` }
+          }
+          const result = await sendWeixinMediaFile({
+            filePath: localPath,
+            to: ctx.channelUserId,
+            text: caption || text,
+            opts: {
+              baseUrl: account.baseUrl,
+              token: account.token,
+              contextToken,
+            },
+            cdnBaseUrl: account.cdnBaseUrl,
+            log: ctx.logger,
+          })
+          return { ok: true, message: 'Sent media to WeChat.', details: { messageId: result.messageId } }
+        }
+
+        const result = await sendMessageWeixin({
+          to: ctx.channelUserId,
+          text,
+          opts: {
+            baseUrl: account.baseUrl,
+            token: account.token,
+            contextToken,
+          },
+          log: ctx.logger,
+        })
+        return { ok: true, message: 'Sent text to WeChat.', details: { messageId: result.messageId } }
+      } catch (err) {
+        return { ok: false, hint: `WeChat send failed: ${String(err)}` }
+      }
+    },
+  } satisfies ChannelMessageActionAdapter,
 
   auth: {
     async login(ctx) {

@@ -231,5 +231,6 @@ async function processMessage(
     channelUserId: fromUserId,
     message,
     attachments: attachments.length > 0 ? attachments : undefined,
+    senderId: fromUserId,
   })
 }
