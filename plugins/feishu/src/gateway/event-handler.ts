@@ -84,13 +84,9 @@ export function registerMessageHandler(
         return {}
       }
 
-      // Only deliver for bound users; unbound senders are ignored to avoid leaking access.
-      const colaUserId = await runtime.identity.resolve(senderId)
-      if (!colaUserId) {
-        logger.info(`feishu[${deps.accountId}]: ignoring message from unbound user ${senderId}`)
-        return {}
-      }
-
+      // Identity resolution and access control live in the host
+      // (plugin-host.ts::createDeliverFn) — single source of truth for the
+      // trust-on-first-contact pairing policy.
       await deliver({
         channelUserId: senderId,
         message: text,
