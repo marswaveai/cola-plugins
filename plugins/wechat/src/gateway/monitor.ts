@@ -194,12 +194,7 @@ async function processMessage(
   const fromUserId = msg.from_user_id
   if (!fromUserId) return
 
-  // Check identity binding
-  const colaUserId = await runtime.identity.resolve(fromUserId)
-  if (!colaUserId) {
-    log.warn(`Ignoring message from unbound user: ${fromUserId}`)
-    return
-  }
+  // Identity resolution and access control live in the host (trust-on-first-contact pairing)
 
   // Persist context token
   if (msg.context_token) {
