@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "cola-plugin-sdk": "^0.2.0",
+    "cola-plugin-sdk": "^0.3.0",
     "@larksuiteoapi/node-sdk": "^1.60.0"
   },
   "devDependencies": {

@@ -7,6 +7,7 @@ import type {
 } from 'cola-plugin-sdk'
 import type { FeishuPluginConfig } from './api/types.js'
 import { setPluginDir, resolvePluginDir, parseAccountConfigs } from './auth/accounts.js'
+import { feishuSetupWizard } from './auth/setup.js'
 import { startMonitor, type MonitorHandle } from './gateway/monitor.js'
 import { sendText, sendMedia } from './outbound/send.js'
 import { createFeishuCommands } from './commands/feishu.js'
@@ -31,13 +32,14 @@ function resolveMonitorForUser(channelUserId: string): MonitorHandle | undefined
 
 export default defineChannel<FeishuGatewayState>({
   id: 'feishu',
-  minSdkVersion: '0.2.0',
 
   meta: {
     label: 'Feishu',
     description: 'Feishu/Lark messaging via official bot API',
     markdownCapable: true,
   },
+
+  setup: feishuSetupWizard,
 
   capabilities: {
     receive: {
