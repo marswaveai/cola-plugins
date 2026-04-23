@@ -17,20 +17,24 @@ type RegistryEntry = {
 const entries: RegistryEntry[] = []
 
 for (const name of fs.readdirSync(pluginsDir)) {
-  const pkgPath = path.join(pluginsDir, name, 'package.json')
-  if (!fs.existsSync(pkgPath)) continue
+  const dir = path.join(pluginsDir, name)
+  if (!fs.statSync(dir).isDirectory()) continue
 
+  const pkgPath = path.join(dir, 'package.json')
+  if (!fs.existsSync(pkgPath)) continue
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
-  const channel = pkg.cola?.channel
-  if (!channel?.id) continue
+
+  const mod = await import(dir)
+  const plugin = mod.default ?? mod
+  if (!plugin?.id || !plugin?.meta) continue
 
   entries.push({
-    id: channel.id,
-    label: channel.label ?? channel.id,
-    description: channel.description,
+    id: plugin.id,
+    label: plugin.meta.label ?? plugin.id,
+    description: plugin.meta.description,
     version: pkg.version,
-    minSdkVersion: channel.minSdkVersion,
-    downloadUrl: `https://github.com/marswaveai/cola-plugins/releases/download/${channel.id}@${pkg.version}/${channel.id}-${pkg.version}.tar.gz`,
+    minSdkVersion: plugin.minSdkVersion,
+    downloadUrl: `https://github.com/marswaveai/cola-plugins/releases/download/${plugin.id}@${pkg.version}/${plugin.id}-${pkg.version}.tar.gz`,
   })
 }
 

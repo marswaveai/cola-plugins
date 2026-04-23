@@ -31,6 +31,7 @@ function resolveMonitorForUser(channelUserId: string): MonitorHandle | undefined
 
 export default defineChannel<FeishuGatewayState>({
   id: 'feishu',
+  minSdkVersion: '0.2.0',
 
   meta: {
     label: 'Feishu',

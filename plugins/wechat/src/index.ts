@@ -45,6 +45,7 @@ function resolveLocalPath(mediaUrl: string): string {
 
 export default defineChannel<WechatGatewayState>({
   id: 'wechat',
+  minSdkVersion: '0.1.0',
   sessionMode: 'shared',
 
   commands: [

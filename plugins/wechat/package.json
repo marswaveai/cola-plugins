@@ -3,14 +3,8 @@
   "version": "0.1.1",
   "description": "WeChat channel plugin for Cola",
   "type": "module",
-  "cola": {
-    "channel": {
-      "id": "wechat",
-      "label": "WeChat",
-      "description": "WeChat messaging via iLink bot protocol",
-      "entry": "./dist/index.js",
-      "minSdkVersion": "0.1.0"
-    }
+  "exports": {
+    ".": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup",

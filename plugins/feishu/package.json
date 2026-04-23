@@ -3,14 +3,8 @@
   "version": "0.1.0",
   "description": "Feishu/Lark channel plugin for Cola",
   "type": "module",
-  "cola": {
-    "channel": {
-      "id": "feishu",
-      "label": "Feishu",
-      "description": "Feishu/Lark messaging via official bot API",
-      "entry": "./dist/index.js",
-      "minSdkVersion": "0.2.0"
-    }
+  "exports": {
+    ".": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup",
