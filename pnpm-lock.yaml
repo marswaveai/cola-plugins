@@ -37,8 +37,8 @@ importers:
   plugins/wechat:
     dependencies:
       cola-plugin-sdk:
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.4.0
+        version: 0.4.0
       qrcode-terminal:
         specifier: 0.12.0
         version: 0.12.0
@@ -429,6 +429,9 @@ packages:
 
   cola-plugin-sdk@0.3.0:
     resolution: {integrity: sha512-5jWPHxhnnZnaFRETTW8K/szYQP3f0+2aJvPxg2VSVqMfJZrCz1ZOkVEpYjvSGfodGEiVTf25NCRcRH+m4yyszQ==}
+
+  cola-plugin-sdk@0.4.0:
+    resolution: {integrity: sha512-c/3SDQaG6trIBq0KneKNM7lgkKcyTMdHv1ee0aF6+YFyBo1soGpsB3+leGTKokJ2wbWEss0YEzb1O0H6wk7mHQ==}
 
   combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
@@ -1013,6 +1016,8 @@ snapshots:
       readdirp: 4.1.2
 
   cola-plugin-sdk@0.3.0: {}
+
+  cola-plugin-sdk@0.4.0: {}
 
   combined-stream@1.0.8:
     dependencies:

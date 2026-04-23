@@ -75,6 +75,26 @@ function extractTextBody(msg: WeixinMessage): string {
   return parts.join('\n')
 }
 
+function extractCause(err: Error): string | null {
+  const cause = (err as { cause?: unknown }).cause
+  if (!cause) return null
+  if (cause instanceof Error) {
+    const code = (cause as { code?: string }).code
+    return code ? `${cause.message} code=${code}` : cause.message
+  }
+  if (typeof cause === 'object') {
+    const obj = cause as { message?: unknown; code?: unknown; errno?: unknown }
+    const parts: string[] = []
+    if (typeof obj.message === 'string') parts.push(obj.message)
+    if (typeof obj.code === 'string') parts.push(`code=${obj.code}`)
+    if (typeof obj.errno === 'number' || typeof obj.errno === 'string') {
+      parts.push(`errno=${obj.errno}`)
+    }
+    if (parts.length > 0) return parts.join(' ')
+  }
+  return String(cause)
+}
+
 function findFirstMediaItem(msg: WeixinMessage): MessageItem | undefined {
   const items = msg.item_list ?? []
   // Priority: image > video > file > voice
@@ -163,13 +183,21 @@ export function startMonitor(opts: MonitorOpts): void {
       }
     },
 
-    onError(err) {
+    async onError(err) {
       consecutiveFailures++
+      const causeMsg = extractCause(err)
+      const suffix = causeMsg ? ` (cause: ${causeMsg})` : ''
       if (consecutiveFailures >= 3) {
-        log.error(`${consecutiveFailures} consecutive failures, backing off: ${err.message}`)
+        log.error(
+          `${consecutiveFailures} consecutive failures, backing off: ${err.message}${suffix}`,
+        )
       } else {
-        log.warn(`Poll error (${consecutiveFailures}): ${err.message}`)
+        log.warn(`Poll error (${consecutiveFailures}): ${err.message}${suffix}`)
       }
+      // Exponential backoff with jitter, capped at 60s.
+      const backoffMs = Math.min(1000 * 2 ** (consecutiveFailures - 1), 60_000)
+      const jitter = Math.round(backoffMs * (0.75 + Math.random() * 0.5))
+      await new Promise((r) => setTimeout(r, jitter))
     },
   })
 
