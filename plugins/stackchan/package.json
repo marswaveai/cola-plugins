@@ -24,7 +24,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "cola-plugin-sdk": "^0.4.0",
+    "cola-plugin-sdk": "link:/Users/mack/.codex/worktrees/607d/cola/shared/plugin-sdk",
     "ws": "^8.18.0"
   },
   "devDependencies": {

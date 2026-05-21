@@ -37,8 +37,8 @@ importers:
   plugins/stackchan:
     dependencies:
       cola-plugin-sdk:
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: link:/Users/mack/.codex/worktrees/607d/cola/shared/plugin-sdk
+        version: link:../../../../../../.codex/worktrees/607d/cola/shared/plugin-sdk
       ws:
         specifier: ^8.18.0
         version: 8.20.0
