@@ -103,4 +103,14 @@ describe('parseDeviceMessage', () => {
     expect(msg).toEqual({ type: 'status', details: { battery: 50 } })
     expect((Object.prototype as { polluted?: unknown }).polluted).toBeUndefined()
   })
+
+  it('parses prompt with text', () => {
+    expect(
+      parseDeviceMessage(JSON.stringify({ type: 'prompt', text: 'hello world', promptId: 'p1' }))
+    ).toEqual({ type: 'prompt', text: 'hello world', promptId: 'p1' })
+  })
+
+  it('rejects prompt missing text', () => {
+    expect(parseDeviceMessage(JSON.stringify({ type: 'prompt' }))).toBeNull()
+  })
 })

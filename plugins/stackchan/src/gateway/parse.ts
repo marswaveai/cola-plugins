@@ -85,6 +85,15 @@ export function parseDeviceMessage(raw: string | Buffer): DeviceClientMessage | 
         ...(detailKeys.length > 0 && { details: rest })
       }
     }
+    case 'prompt': {
+      const text = readString(parsed.text)
+      if (!text) return null
+      return {
+        type: 'prompt',
+        text,
+        ...(typeof parsed.promptId === 'string' && { promptId: parsed.promptId })
+      }
+    }
     default:
       return null
   }

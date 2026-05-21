@@ -12,12 +12,22 @@ export type StackChanConfig = {
   ttsBaseUrl: string
 }
 
+// Legacy text-only debug path. Removed in M2 once audio path is live.
+export type LegacyPromptMessage = { type: 'prompt'; text: string; promptId?: string }
+export type LegacySayMessage = {
+  type: 'say'
+  text: string
+  promptId: string
+  timestamp: number
+}
+
 export type DeviceClientMessage =
   | { type: 'hello'; deviceId: string; name?: string; firmwareVersion?: string; token?: string }
   | { type: 'audio.start'; promptId: string; language?: string; sampleRate?: number }
   | { type: 'audio.end'; promptId: string; samplesTotal?: number }
   | { type: 'pong'; timestamp?: number }
   | { type: 'status'; promptId?: string; details?: Record<string, unknown> }
+  | LegacyPromptMessage
 
 export type DeviceServerMessage =
   | { type: 'hello.ok'; serverVersion: string }
