@@ -25,10 +25,7 @@ function readString(value: unknown, fallback: string): string {
 }
 
 function readBoolean(value: unknown, fallback: boolean): boolean {
-  if (typeof value === 'boolean') return value
-  if (value === 'true') return true
-  if (value === 'false') return false
-  return fallback
+  return typeof value === 'boolean' ? value : fallback
 }
 
 function readPositiveInt(value: unknown, fallback: number): number {

@@ -46,5 +46,11 @@ describe('readConfig', () => {
     expect(cfg.port).toBe(19540)
     expect(cfg.heartbeatMs).toBe(30_000)
     expect(cfg.language).toBe('auto')
+    // readString trims whitespace and falls back when blank
+    expect(readConfig({ host: '   ' }).host).toBe('0.0.0.0')
+    // readPort rejects out-of-range numbers
+    expect(readConfig({ port: 70000 }).port).toBe(19540)
+    // readLanguage rejects empty string and falls back
+    expect(readConfig({ language: '' }).language).toBe('auto')
   })
 })
