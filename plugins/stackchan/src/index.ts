@@ -59,6 +59,10 @@ export default defineChannel<StackChanState>({
     async stop(ctx) {
       stopGateway(ctx.state)
     },
+    async reload(ctx) {
+      stopGateway(ctx.state)
+      await startGateway(ctx, readConfig(ctx.config))
+    },
     getStatus(ctx): ChannelStatusResult {
       const list = gatewayState.registry?.list() ?? []
       return {

@@ -78,7 +78,7 @@ export async function startGateway(
   gatewayState.heartbeatTimer = heartbeatTimer
   ctx.state.heartbeatTimer = heartbeatTimer
 
-  ctx.abortSignal.addEventListener('abort', () => stopGateway(gatewayState), { once: true })
+  ctx.abortSignal.addEventListener('abort', () => stopGateway(ctx.state), { once: true })
 }
 
 export function stopGateway(state: StackChanState): void {
