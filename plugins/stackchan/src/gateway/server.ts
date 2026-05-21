@@ -6,6 +6,7 @@ import { createDeviceRegistry, type DeviceRegistry } from './devices'
 import { createSession } from './session'
 import type { Session } from './session'
 import { int16BufferToFloat32 } from '../audio/pcm'
+import type { OutboundSender } from '../outbound/send'
 
 export type StackChanState = {
   registry: DeviceRegistry | null
@@ -13,6 +14,8 @@ export type StackChanState = {
   heartbeatTimer: ReturnType<typeof setInterval> | null
   statusMessage: string
   sessions: Map<string, Session>
+  senders: Map<string, OutboundSender>      // keyed by promptId
+  sendersByDevice: Map<string, Set<string>> // deviceId → set of promptIds
   cleanupOnClose?: (socket: WebSocket) => void
 }
 
@@ -23,7 +26,31 @@ export const gatewayState: StackChanState = {
   server: null,
   heartbeatTimer: null,
   statusMessage: 'not started',
-  sessions: new Map()
+  sessions: new Map(),
+  senders: new Map(),
+  sendersByDevice: new Map()
+}
+
+// flushTimers is co-located here so cleanupDeviceTurn can clear them on disconnect,
+// preventing timer leaks. index.ts imports scheduleFlush instead of defining it locally.
+const FLUSH_DELAY_MS = 1500
+export const flushTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+export function scheduleFlush(
+  state: StackChanState,
+  promptId: string,
+  deviceId: string
+): void {
+  clearTimeout(flushTimers.get(promptId))
+  const t = setTimeout(() => {
+    const sender = state.senders.get(promptId)
+    if (!sender) return
+    void sender.end()
+    state.senders.delete(promptId)
+    state.sendersByDevice.get(deviceId)?.delete(promptId)
+    flushTimers.delete(promptId)
+  }, FLUSH_DELAY_MS)
+  flushTimers.set(promptId, t)
 }
 
 function runCleanupOnClose(state: StackChanState, socket: WebSocket): void {
@@ -38,6 +65,8 @@ export async function startGateway(
   gatewayState.registry = registry
   ctx.state.registry = registry
   gatewayState.sessions = ctx.state.sessions
+  gatewayState.senders = ctx.state.senders
+  gatewayState.sendersByDevice = ctx.state.sendersByDevice
 
   ctx.state.cleanupOnClose = (sock) => {
     const id = ctx.state.registry?.resolveDeviceId(sock)
@@ -194,14 +223,27 @@ async function handleMessage(
 }
 
 /**
- * Cleans up any audio session for the given device. Called on socket
- * close to prevent leaking sessions/streams from disconnected devices.
+ * Cleans up any audio session and outbound senders for the given device.
+ * Called on socket close to prevent leaking sessions/streams/timers from
+ * disconnected devices.
  */
 export function cleanupDeviceTurn(state: StackChanState, deviceId: string): void {
   const session = state.sessions.get(deviceId)
   if (session) {
     session.cancel()
     state.sessions.delete(deviceId)
+  }
+  const promptIds = state.sendersByDevice.get(deviceId)
+  if (promptIds) {
+    for (const id of promptIds) {
+      state.senders.delete(id)
+      const timer = flushTimers.get(id)
+      if (timer) {
+        clearTimeout(timer)
+        flushTimers.delete(id)
+      }
+    }
+    state.sendersByDevice.delete(deviceId)
   }
 }
 

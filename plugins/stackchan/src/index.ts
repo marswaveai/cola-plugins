@@ -1,8 +1,10 @@
 import { defineChannel } from 'cola-plugin-sdk'
 import type { OutboundContext, ChannelStatusResult } from 'cola-plugin-sdk'
 import { readConfig } from './config'
-import { gatewayState, send, startGateway, stopGateway, type StackChanState } from './gateway/server'
+import { gatewayState, scheduleFlush, startGateway, stopGateway, type StackChanState } from './gateway/server'
 import { createStackchanCommands } from './commands/stackchan'
+import { createOutboundSender } from './outbound/send'
+import { synthesize } from './outbound/tts-client'
 
 export default defineChannel<StackChanState>({
   id: 'stackchan',
@@ -81,13 +83,35 @@ export default defineChannel<StackChanState>({
         ctx.logger.warn(`no device for outbound text: ${deviceId}`)
         return
       }
-      send(device.socket, {
-        type: 'reply.sentence',
-        promptId: ctx.promptId,
-        text: ctx.text,
-        ttsBytes: 0
-      })
-      send(device.socket, { type: 'reply.end', promptId: ctx.promptId })
+      const config = readConfig(ctx.config)
+      let sender = gatewayState.senders.get(ctx.promptId)
+      if (!sender) {
+        sender = createOutboundSender({
+          socket: device.socket,
+          promptId: ctx.promptId,
+          synth: async (text) => {
+            if (!config.accessToken) {
+              throw new Error('accessToken not configured')
+            }
+            return synthesize({
+              baseUrl: config.ttsBaseUrl,
+              accessToken: config.accessToken,
+              speakerId: config.speakerId || 'default',
+              language: config.language,
+              text
+            })
+          }
+        })
+        gatewayState.senders.set(ctx.promptId, sender)
+        let owned = gatewayState.sendersByDevice.get(deviceId)
+        if (!owned) {
+          owned = new Set()
+          gatewayState.sendersByDevice.set(deviceId, owned)
+        }
+        owned.add(ctx.promptId)
+      }
+      await sender.sendChunk(ctx.text)
+      scheduleFlush(gatewayState, ctx.promptId, deviceId)
     }
   }
 })

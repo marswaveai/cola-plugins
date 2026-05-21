@@ -52,7 +52,9 @@ describe('handleAudioMessage', () => {
       server: null,
       heartbeatTimer: null,
       statusMessage: '',
-      sessions: new Map()
+      sessions: new Map(),
+      senders: new Map(),
+      sendersByDevice: new Map()
     }
     ;(ctx as unknown as { state: StackChanState }).state = state
 
