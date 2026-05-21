@@ -61,4 +61,46 @@ describe('parseDeviceMessage', () => {
   it('returns null for unknown type', () => {
     expect(parseDeviceMessage(JSON.stringify({ type: 'made-up' }))).toBeNull()
   })
+
+  it('drops hello.name when it is not a string', () => {
+    const msg = parseDeviceMessage(
+      JSON.stringify({ type: 'hello', deviceId: 'dev-1', name: 99 })
+    )
+    expect(msg).toEqual({ type: 'hello', deviceId: 'dev-1' })
+  })
+
+  it('drops audio.start.sampleRate when it is not a number', () => {
+    const msg = parseDeviceMessage(
+      JSON.stringify({ type: 'audio.start', promptId: 'p1', sampleRate: 'fast' })
+    )
+    expect(msg).toEqual({ type: 'audio.start', promptId: 'p1' })
+  })
+
+  it('drops pong.timestamp when it is NaN-like (Number.isFinite fails)', () => {
+    // JSON cannot represent NaN; emulate by sending a string. The same guard
+    // would reject NaN/Infinity from any other source.
+    const msg = parseDeviceMessage(JSON.stringify({ type: 'pong', timestamp: 'tick' }))
+    expect(msg).toEqual({ type: 'pong' })
+  })
+
+  it('status with non-string promptId silently drops it (does not return null)', () => {
+    const msg = parseDeviceMessage(
+      JSON.stringify({ type: 'status', promptId: 99, battery: 50 })
+    )
+    expect(msg).toEqual({ type: 'status', details: { promptId: 99, battery: 50 } })
+  })
+
+  it('hello trims whitespace around deviceId', () => {
+    const msg = parseDeviceMessage(
+      JSON.stringify({ type: 'hello', deviceId: '  dev-trim  ' })
+    )
+    expect(msg).toEqual({ type: 'hello', deviceId: 'dev-trim' })
+  })
+
+  it('status.details strips dangerous keys (__proto__, constructor, prototype)', () => {
+    const raw = '{"type":"status","__proto__":{"polluted":true},"constructor":{"x":1},"prototype":{"y":2},"battery":50}'
+    const msg = parseDeviceMessage(raw)
+    expect(msg).toEqual({ type: 'status', details: { battery: 50 } })
+    expect((Object.prototype as { polluted?: unknown }).polluted).toBeUndefined()
+  })
 })
