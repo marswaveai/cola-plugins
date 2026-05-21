@@ -1,14 +1,19 @@
 import { WebSocketServer, type WebSocket, type RawData } from 'ws'
-import type { GatewayContext, PluginLogger } from 'cola-plugin-sdk'
+import type { GatewayContext, PluginLogger, SttLanguage } from 'cola-plugin-sdk'
 import type { DeviceClientMessage, DeviceServerMessage, StackChanConfig } from '../types'
 import { parseDeviceMessage } from './parse'
 import { createDeviceRegistry, type DeviceRegistry } from './devices'
+import { createSession } from './session'
+import type { Session } from './session'
+import { int16BufferToFloat32 } from '../audio/pcm'
 
 export type StackChanState = {
   registry: DeviceRegistry | null
   server: WebSocketServer | null
   heartbeatTimer: ReturnType<typeof setInterval> | null
   statusMessage: string
+  sessions: Map<string, Session>
+  cleanupOnClose?: (socket: WebSocket) => void
 }
 
 const SERVER_VERSION = '0.1.0'
@@ -17,14 +22,12 @@ export const gatewayState: StackChanState = {
   registry: null,
   server: null,
   heartbeatTimer: null,
-  statusMessage: 'not started'
+  statusMessage: 'not started',
+  sessions: new Map()
 }
 
-type CloseCleanup = (socket: WebSocket) => void
-
 function runCleanupOnClose(state: StackChanState, socket: WebSocket): void {
-  const hook = (state as { cleanupOnClose?: CloseCleanup }).cleanupOnClose
-  if (typeof hook === 'function') hook(socket)
+  if (typeof state.cleanupOnClose === 'function') state.cleanupOnClose(socket)
 }
 
 export async function startGateway(
@@ -34,6 +37,13 @@ export async function startGateway(
   const registry = createDeviceRegistry({ now: () => Date.now() })
   gatewayState.registry = registry
   ctx.state.registry = registry
+  gatewayState.sessions = ctx.state.sessions
+
+  ctx.state.cleanupOnClose = (sock) => {
+    const id = ctx.state.registry?.resolveDeviceId(sock)
+    if (id) cleanupDeviceTurn(ctx.state, id)
+  }
+  gatewayState.cleanupOnClose = ctx.state.cleanupOnClose
 
   const server = new WebSocketServer({
     host: config.host,
@@ -43,6 +53,10 @@ export async function startGateway(
 
   server.on('connection', (socket) => {
     socket.on('message', (data) => {
+      if (data instanceof Buffer && !looksLikeJson(data)) {
+        handleBinaryFrame(ctx.state, socket, data)
+        return
+      }
       void handleMessage(ctx, config, registry, socket, data)
     })
     socket.on('close', () => {
@@ -105,10 +119,6 @@ async function handleMessage(
   socket: WebSocket,
   raw: RawData
 ): Promise<void> {
-  if (raw instanceof Buffer && !looksLikeJson(raw)) {
-    // Binary frame outside an audio window — ignore in this phase.
-    return
-  }
   const message = parseDeviceMessage(raw as Buffer | string)
   if (!message) {
     send(socket, { type: 'error', code: 'bad_request', message: 'invalid frame' })
@@ -174,10 +184,106 @@ async function handleMessage(
         timestamp: Date.now()
       })
       return
+    case 'audio.start':
+    case 'audio.end':
+      await handleAudioMessage(ctx, registry, socket, message)
+      return
     default:
-      // audio.* handled in M2.
       send(socket, { type: 'error', code: 'unsupported', message: `not implemented: ${(message as DeviceClientMessage).type}` })
   }
+}
+
+/**
+ * Cleans up any audio session for the given device. Called on socket
+ * close to prevent leaking sessions/streams from disconnected devices.
+ */
+export function cleanupDeviceTurn(state: StackChanState, deviceId: string): void {
+  const session = state.sessions.get(deviceId)
+  if (session) {
+    session.cancel()
+    state.sessions.delete(deviceId)
+  }
+}
+
+export async function handleAudioMessage(
+  ctx: GatewayContext<StackChanState>,
+  registry: DeviceRegistry,
+  socket: WebSocket,
+  message: Extract<DeviceClientMessage, { type: 'audio.start' | 'audio.end' }>
+): Promise<void> {
+  const deviceId = registry.resolveDeviceId(socket)
+  if (!deviceId) {
+    send(socket, { type: 'error', code: 'no_hello', message: 'send hello first' })
+    return
+  }
+  const bound = await ctx.runtime.identity.resolve(deviceId)
+  if (!bound) {
+    send(socket, { type: 'error', code: 'unbound', message: `device ${deviceId} not bound` })
+    return
+  }
+
+  if (message.type === 'audio.start') {
+    if (ctx.state.sessions.has(deviceId)) {
+      send(socket, { type: 'error', code: 'busy', message: 'audio session in progress' })
+      return
+    }
+    const language = (message.language as SttLanguage | undefined) ?? 'auto'
+    const session = createSession({
+      promptId: message.promptId,
+      language,
+      stt: ctx.runtime.stt.createStream,
+      onTranscript: (text) =>
+        send(socket, { type: 'transcript.partial', promptId: message.promptId, text }),
+      onError: (code) =>
+        send(socket, { type: 'error', code, message: code, promptId: message.promptId })
+    })
+    if (!session.opened) return
+    ctx.state.sessions.set(deviceId, session)
+    send(socket, { type: 'audio.ready', promptId: message.promptId })
+    return
+  }
+
+  if (message.type === 'audio.end') {
+    const session = ctx.state.sessions.get(deviceId)
+    if (!session || session.promptId !== message.promptId) {
+      send(socket, { type: 'error', code: 'no_session', message: 'no matching audio session' })
+      return
+    }
+    try {
+      const text = await session.finish()
+      send(socket, { type: 'transcript.final', promptId: message.promptId, text })
+      await ctx.deliver({
+        sessionId: ['stackchan', deviceId],
+        sender: { id: deviceId, name: registry.find(deviceId)?.name ?? 'StackChan' },
+        deliveryContext: { to: deviceId },
+        message: text
+      })
+    } catch (err) {
+      ctx.logger.error('stackchan stt failed', err)
+      send(socket, {
+        type: 'error',
+        code: 'stt_failed',
+        message: 'transcription failed',
+        promptId: message.promptId
+      })
+    } finally {
+      ctx.state.sessions.delete(deviceId)
+    }
+    return
+  }
+}
+
+export function handleBinaryFrame(
+  state: StackChanState,
+  socket: WebSocket,
+  buf: Buffer
+): void {
+  const deviceId = state.registry?.resolveDeviceId(socket)
+  if (!deviceId) return
+  const session = state.sessions.get(deviceId)
+  if (!session) return
+  const samples = int16BufferToFloat32(buf)
+  session.pushAudio(samples)
 }
 
 function looksLikeJson(buf: Buffer): boolean {
