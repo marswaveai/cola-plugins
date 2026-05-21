@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import type { PluginLogger, PluginRuntime, DeliverFn } from 'cola-plugin-sdk'
+import type { PluginLogger, DeliverFn } from 'cola-plugin-sdk'
 import { createPollLoop } from 'cola-plugin-sdk'
 import { getUpdates } from '../api/client.js'
 import { WeixinConfigManager } from '../api/config-cache.js'
@@ -26,7 +26,6 @@ export function getConfigManagerForAccount(accountId: string): WeixinConfigManag
 
 type MonitorOpts = {
   account: ResolvedWeixinAccount
-  runtime: PluginRuntime
   deliver: DeliverFn
   logger: PluginLogger
   abortSignal: AbortSignal
@@ -113,7 +112,7 @@ function findFirstMediaItem(msg: WeixinMessage): MessageItem | undefined {
 }
 
 export function startMonitor(opts: MonitorOpts): void {
-  const { account, runtime, deliver, logger: log, abortSignal } = opts
+  const { account, deliver, logger: log, abortSignal } = opts
   const syncBufPath = resolveSyncBufPath(account.accountId)
 
   // Restore context tokens from disk
@@ -172,10 +171,8 @@ export function startMonitor(opts: MonitorOpts): void {
         try {
           await processMessage(msg, {
             account,
-            runtime,
             deliver,
             log,
-            configManager,
           })
         } catch (err) {
           log.error(`Error processing message: ${String(err)}`)
@@ -208,13 +205,11 @@ async function processMessage(
   msg: WeixinMessage,
   deps: {
     account: ResolvedWeixinAccount
-    runtime: PluginRuntime
     deliver: DeliverFn
     log: PluginLogger
-    configManager: WeixinConfigManager
   },
 ): Promise<void> {
-  const { account, runtime, deliver, log } = deps
+  const { account, deliver, log } = deps
 
   // Only process user messages
   if (msg.message_type !== MessageType.USER) return
@@ -238,7 +233,6 @@ async function processMessage(
   if (mediaItem) {
     const result = await downloadMediaFromItem(mediaItem, {
       cdnBaseUrl: account.cdnBaseUrl,
-      runtime,
       log,
     })
     if (result.filePath) {
@@ -251,9 +245,13 @@ async function processMessage(
   if (!message && attachments.length === 0) return
 
   await deliver({
-    channelUserId: fromUserId,
+    sessionId: ['user', account.accountId, fromUserId],
+    sender: { id: fromUserId },
+    deliveryContext: {
+      to: `user:${fromUserId}`,
+      accountId: account.accountId,
+    },
     message,
     attachments: attachments.length > 0 ? attachments : undefined,
-    senderId: fromUserId,
   })
 }

@@ -102,7 +102,7 @@ export async function performQrLogin(opts: {
   runtime: PluginRuntime
   logger: PluginLogger
   pluginConfig: Readonly<Record<string, unknown>>
-  onQrCode?: (dataUrl: string) => void
+  onQrCode?: (imageSrc: string, rawContent: string) => void
   onStatus?: (status: string, message?: string) => void
 }): Promise<QrLoginResult> {
   const { runtime, logger: log, onQrCode, onStatus } = opts
@@ -122,7 +122,7 @@ export async function performQrLogin(opts: {
 
   // Step 2: Display QR code
   if (onQrCode) {
-    onQrCode(qrResponse.qrcode_img_content)
+    onQrCode(qrResponse.qrcode_img_content, qrResponse.qrcode)
   } else {
     // CLI fallback: render in terminal
     try {
@@ -179,7 +179,7 @@ export async function performQrLogin(opts: {
           login.startedAt = Date.now()
           scannedNotified = false
           if (onQrCode) {
-            onQrCode(newQr.qrcode_img_content)
+            onQrCode(newQr.qrcode_img_content, newQr.qrcode)
           } else {
             try {
               const qrterm = await import('qrcode-terminal')

@@ -1,5 +1,5 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger, DeliverFn, PluginRuntime } from 'cola-plugin-sdk'
+import type { PluginLogger, DeliverFn } from 'cola-plugin-sdk'
 import { parseMessage } from './message-parser.js'
 import { stripBotMention } from '../util/mention.js'
 import { MessageDedup } from './dedup.js'
@@ -10,7 +10,6 @@ export type EventHandlerDeps = {
   accountId: string
   logger: PluginLogger
   deliver: DeliverFn
-  runtime: PluginRuntime
   dedup: MessageDedup
   chatMap: ChatMap
   botOpenId?: string
@@ -27,7 +26,7 @@ export function registerMessageHandler(
     'im.message.receive_v1': async (data) => {
       // SDK v1 passes event data flat (not wrapped in .event)
       const { message, sender } = data
-      const { logger, deliver, runtime, dedup, chatMap, client } = deps
+      const { accountId, logger, deliver, dedup, chatMap, client } = deps
 
       // Dedup
       if (dedup.isDuplicate(message.message_id)) {
@@ -88,11 +87,14 @@ export function registerMessageHandler(
       // (plugin-host.ts::createDeliverFn) — single source of truth for the
       // trust-on-first-contact pairing policy.
       await deliver({
-        channelUserId: senderId,
+        sessionId: ['chat', accountId, message.chat_id, 'sender', senderId],
+        sender: { id: senderId },
+        deliveryContext: {
+          to: `chat:${message.chat_id}`,
+          accountId,
+        },
         message: text,
         attachments: parsed.attachments.length > 0 ? parsed.attachments : undefined,
-        platformMessageId: message.message_id,
-        senderId,
       })
 
       return {}

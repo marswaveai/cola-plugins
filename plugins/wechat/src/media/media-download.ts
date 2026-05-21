@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 
-import type { PluginLogger, PluginRuntime } from 'cola-plugin-sdk'
+import type { PluginLogger } from 'cola-plugin-sdk'
 import type { MessageItem } from '../api/types.js'
 import { MessageItemType } from '../api/types.js'
 import { getMimeFromFilename } from './mime.js'
@@ -30,11 +30,10 @@ export async function downloadMediaFromItem(
   item: MessageItem,
   deps: {
     cdnBaseUrl: string
-    runtime: PluginRuntime
     log: PluginLogger
   },
 ): Promise<MediaDownloadResult> {
-  const { cdnBaseUrl, runtime, log } = deps
+  const { cdnBaseUrl, log } = deps
   const result: MediaDownloadResult = {}
 
   if (item.type === MessageItemType.IMAGE) {
@@ -82,7 +81,7 @@ export async function downloadMediaFromItem(
         log,
         voice.media.full_url,
       )
-      const wavBuf = await silkToWav(silkBuf, runtime.offload, log)
+      const wavBuf = await silkToWav(silkBuf, log)
       if (wavBuf) {
         result.filePath = await saveToTemp(wavBuf, '.wav')
         result.mediaType = 'audio/wav'

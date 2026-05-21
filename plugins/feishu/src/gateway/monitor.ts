@@ -1,5 +1,5 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger, DeliverFn, PluginRuntime } from 'cola-plugin-sdk'
+import type { PluginLogger, DeliverFn } from 'cola-plugin-sdk'
 import type { FeishuAccountConfig } from '../api/types.js'
 import { createLarkClient, createEventDispatcher } from '../api/client.js'
 import { registerMessageHandler } from './event-handler.js'
@@ -22,11 +22,10 @@ export function startMonitor(opts: {
   accountId: string
   config: FeishuAccountConfig
   deliver: DeliverFn
-  runtime: PluginRuntime
   logger: PluginLogger
   abortSignal: AbortSignal
 }): MonitorHandle {
-  const { accountId, config, deliver, runtime, logger, abortSignal } = opts
+  const { accountId, config, deliver, logger, abortSignal } = opts
 
   // Create client and dispatcher
   const client = createLarkClient(accountId, config)
@@ -40,7 +39,6 @@ export function startMonitor(opts: {
     accountId,
     logger,
     deliver,
-    runtime,
     dedup,
     chatMap,
   })

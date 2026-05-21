@@ -5,17 +5,17 @@ import { uploadImage, uploadFile } from '../media/upload.js'
 import type { ChatMap } from '../gateway/chat-map.js'
 
 /**
- * Send a text message to a Feishu user.
+ * Send a text message to a Feishu delivery target.
  * Uses post format with md tag for markdown support.
  */
 export async function sendText(
   client: lark.Client,
-  channelUserId: string,
+  deliveryTo: string,
   text: string,
   chatMap: ChatMap,
   logger: PluginLogger,
 ): Promise<void> {
-  const { receiveId, receiveIdType } = resolveReceiver(channelUserId, chatMap)
+  const { receiveId, receiveIdType } = resolveReceiver(deliveryTo, chatMap)
 
   try {
     await client.im.message.create({
@@ -27,23 +27,23 @@ export async function sendText(
       },
     })
   } catch (err) {
-    logger.error(`Failed to send text to ${channelUserId}`, err)
+    logger.error(`Failed to send text to ${deliveryTo}`, err)
     throw err
   }
 }
 
 /**
- * Send a media file (image or file) to a Feishu user.
+ * Send a media file (image or file) to a Feishu delivery target.
  */
 export async function sendMedia(
   client: lark.Client,
-  channelUserId: string,
+  deliveryTo: string,
   mediaType: string,
   filePath: string,
   chatMap: ChatMap,
   logger: PluginLogger,
 ): Promise<void> {
-  const { receiveId, receiveIdType } = resolveReceiver(channelUserId, chatMap)
+  const { receiveId, receiveIdType } = resolveReceiver(deliveryTo, chatMap)
 
   try {
     if (mediaType.startsWith('image/')) {
@@ -72,15 +72,23 @@ export async function sendMedia(
       })
     }
   } catch (err) {
-    logger.error(`Failed to send media to ${channelUserId}`, err)
+    logger.error(`Failed to send media to ${deliveryTo}`, err)
     throw err
   }
 }
 
-function resolveReceiver(channelUserId: string, chatMap: ChatMap): { receiveId: string; receiveIdType: 'chat_id' | 'open_id' } {
-  const chatId = chatMap.get(channelUserId)
+function resolveReceiver(
+  deliveryTo: string,
+  chatMap: ChatMap,
+): { receiveId: string; receiveIdType: 'chat_id' | 'open_id' } {
+  if (deliveryTo.startsWith('chat:')) {
+    return { receiveId: deliveryTo.slice('chat:'.length), receiveIdType: 'chat_id' }
+  }
+
+  const openId = deliveryTo.startsWith('user:') ? deliveryTo.slice('user:'.length) : deliveryTo
+  const chatId = chatMap.get(openId)
   if (chatId) {
     return { receiveId: chatId, receiveIdType: 'chat_id' }
   }
-  return { receiveId: channelUserId, receiveIdType: 'open_id' }
+  return { receiveId: openId, receiveIdType: 'open_id' }
 }

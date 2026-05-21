@@ -29,21 +29,15 @@ function pcmBytesToWav(pcm: Uint8Array, sampleRate: number): Buffer {
 }
 
 /**
- * Transcode SILK audio to WAV. Uses runtime.offload to avoid blocking the event loop.
+ * Transcode SILK audio to WAV.
  * Returns WAV buffer on success, null if silk-wasm is unavailable or decoding fails.
  */
-export async function silkToWav(
-  silkBuf: Buffer,
-  offload: <T>(fn: () => T) => Promise<T>,
-  log: PluginLogger,
-): Promise<Buffer | null> {
+export async function silkToWav(silkBuf: Buffer, log: PluginLogger): Promise<Buffer | null> {
   try {
     const { decode } = await import('silk-wasm')
-    const result = await offload(() => {
-      // silk-wasm decode returns { data: Uint8Array, duration: number }
-      // Note: decode is synchronous despite returning a Promise-like in some versions
-      return decode(silkBuf, SILK_SAMPLE_RATE)
-    })
+    // silk-wasm decode returns { data: Uint8Array, duration: number }
+    // Note: decode is synchronous despite returning a Promise-like in some versions.
+    const result = decode(silkBuf, SILK_SAMPLE_RATE)
     const resolved = await result
     log.info(`silkToWav: decoded duration=${resolved.duration}ms pcmBytes=${resolved.data.byteLength}`)
     return pcmBytesToWav(resolved.data, SILK_SAMPLE_RATE)

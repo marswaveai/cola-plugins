@@ -2,12 +2,11 @@ import { defineChannel } from 'cola-plugin-sdk'
 import type {
   GatewayContext,
   OutboundContext,
+  DeliveryContext,
   ChannelStatusResult,
-  ChannelMessageActionAdapter,
 } from 'cola-plugin-sdk'
 import type { FeishuPluginConfig } from './api/types.js'
 import { setPluginDir, resolvePluginDir, parseAccountConfigs } from './auth/accounts.js'
-import { feishuSetupWizard } from './auth/setup.js'
 import { startMonitor, type MonitorHandle } from './gateway/monitor.js'
 import { sendText, sendMedia } from './outbound/send.js'
 import { createFeishuCommands } from './commands/feishu.js'
@@ -20,11 +19,22 @@ type FeishuGatewayState = {
 // Module-level monitor registry — populated by gateway.start, read by outbound/tools
 let activeMonitors = new Map<string, MonitorHandle>()
 
-function resolveMonitorForUser(channelUserId: string): MonitorHandle | undefined {
-  // Check which account's chatMap knows this user
-  for (const handle of activeMonitors.values()) {
-    if (handle.chatMap.hasUser(channelUserId)) return handle
+function trimRecipientPrefix(to: string): string {
+  const separator = to.indexOf(':')
+  return separator >= 0 ? to.slice(separator + 1) : to
+}
+
+function resolveMonitorForDelivery(deliveryContext: DeliveryContext): MonitorHandle | undefined {
+  if (deliveryContext.accountId) {
+    const monitor = activeMonitors.get(deliveryContext.accountId)
+    if (monitor) return monitor
   }
+
+  const recipient = trimRecipientPrefix(deliveryContext.to)
+  for (const handle of activeMonitors.values()) {
+    if (handle.chatMap.hasUser(recipient)) return handle
+  }
+
   // Fallback: return first available monitor (single-account scenario)
   const first = activeMonitors.values().next()
   return first.done ? undefined : first.value
@@ -38,8 +48,6 @@ export default defineChannel<FeishuGatewayState>({
     description: 'Feishu/Lark messaging via official bot API',
     markdownCapable: true,
   },
-
-  setup: feishuSetupWizard,
 
   capabilities: {
     receive: {
@@ -59,7 +67,57 @@ export default defineChannel<FeishuGatewayState>({
     },
   },
 
-  sessionMode: 'shared',
+  config: {
+    schema: {
+      fields: [
+        {
+          key: 'appId',
+          path: ['accounts', 'default', 'appId'],
+          label: 'App ID',
+          type: 'text',
+          required: true,
+          placeholder: 'cli_xxx',
+        },
+        {
+          key: 'appSecret',
+          path: ['accounts', 'default', 'appSecret'],
+          label: 'App Secret',
+          type: 'password',
+          required: true,
+          secret: true,
+        },
+        {
+          key: 'domain',
+          path: ['accounts', 'default', 'domain'],
+          label: 'Domain',
+          type: 'select',
+          defaultValue: 'feishu',
+          options: [
+            { label: 'Feishu', value: 'feishu' },
+            { label: 'Lark', value: 'lark' },
+          ],
+        },
+        {
+          key: 'connectionMode',
+          path: ['accounts', 'default', 'connectionMode'],
+          label: 'Connection',
+          type: 'select',
+          defaultValue: 'websocket',
+          options: [
+            { label: 'WebSocket', value: 'websocket' },
+            { label: 'Webhook', value: 'webhook' },
+          ],
+        },
+        {
+          key: 'enabled',
+          path: ['accounts', 'default', 'enabled'],
+          label: 'Enabled',
+          type: 'boolean',
+          defaultValue: true,
+        },
+      ],
+    },
+  },
 
   commands: createFeishuCommands(() => activeMonitors),
 
@@ -84,7 +142,6 @@ export default defineChannel<FeishuGatewayState>({
             accountId,
             config: acctConfig,
             deliver: ctx.deliver,
-            runtime: ctx.runtime,
             logger: ctx.logger,
             abortSignal: ctx.abortSignal,
           })
@@ -133,98 +190,28 @@ export default defineChannel<FeishuGatewayState>({
 
   outbound: {
     async sendText(ctx: OutboundContext) {
-      const handle = resolveMonitorForUser(ctx.channelUserId)
+      const handle = resolveMonitorForDelivery(ctx.deliveryContext)
       if (!handle) {
         ctx.logger.error('sendText: no active Feishu account')
         return
       }
-      await sendText(handle.client, ctx.channelUserId, ctx.text, handle.chatMap, ctx.logger)
+      await sendText(handle.client, ctx.deliveryContext.to, ctx.text, handle.chatMap, ctx.logger)
     },
 
     async sendMedia(ctx: OutboundContext & { mediaType: string; filePath: string }) {
-      const handle = resolveMonitorForUser(ctx.channelUserId)
+      const handle = resolveMonitorForDelivery(ctx.deliveryContext)
       if (!handle) {
         ctx.logger.error('sendMedia: no active Feishu account')
         return
       }
-      await sendMedia(handle.client, ctx.channelUserId, ctx.mediaType, ctx.filePath, handle.chatMap, ctx.logger)
+      await sendMedia(
+        handle.client,
+        ctx.deliveryContext.to,
+        ctx.mediaType,
+        ctx.filePath,
+        handle.chatMap,
+        ctx.logger,
+      )
     },
   },
-
-  messaging: {
-    describeMessageTool: () => ({
-      actions: ['send', 'react'],
-      schema: {
-        properties: {
-          emoji: {
-            type: 'string',
-            description:
-              'Feishu emoji_type for the react action. Examples: THUMBSUP, SMILE, HEART, OK, FACEPALM, JIAYI, COFFEE, FIREWORKS, MUSCLE.',
-          },
-        },
-        visibility: 'current-channel',
-      },
-    }),
-
-    async handleAction(ctx) {
-      const handle = resolveMonitorForUser(ctx.channelUserId)
-      if (!handle) {
-        return { ok: false, hint: 'No active Feishu account for this user.' }
-      }
-
-      if (ctx.action === 'send') {
-        const text = typeof ctx.params.text === 'string' ? ctx.params.text : ''
-        const media = typeof ctx.params.media === 'string' ? ctx.params.media : ''
-        const caption = typeof ctx.params.caption === 'string' ? ctx.params.caption : ''
-        if (!text && !media) {
-          return { ok: false, hint: 'send requires at least one of `text` or `media`.' }
-        }
-        try {
-          if (media) {
-            const mediaType =
-              typeof ctx.params.mediaType === 'string' ? ctx.params.mediaType : 'application/octet-stream'
-            await sendMedia(handle.client, ctx.channelUserId, mediaType, media, handle.chatMap, ctx.logger)
-            if (caption) {
-              await sendText(handle.client, ctx.channelUserId, caption, handle.chatMap, ctx.logger)
-            }
-            return { ok: true, message: 'Sent media to Feishu.' }
-          }
-          await sendText(handle.client, ctx.channelUserId, text, handle.chatMap, ctx.logger)
-          return { ok: true, message: 'Sent text to Feishu.' }
-        } catch (err) {
-          return { ok: false, hint: `Feishu send failed: ${String(err)}` }
-        }
-      }
-
-      if (ctx.action === 'react') {
-        const emoji = typeof ctx.params.emoji === 'string' ? ctx.params.emoji : ''
-        if (!emoji) {
-          return { ok: false, hint: 'react requires `emoji` (Feishu emoji_type, e.g. THUMBSUP).' }
-        }
-        const messageId =
-          (typeof ctx.params.messageId === 'string' ? ctx.params.messageId : undefined) ??
-          (typeof ctx.toolContext.currentMessageId === 'string'
-            ? ctx.toolContext.currentMessageId
-            : undefined)
-        if (!messageId) {
-          return { ok: false, hint: 'react needs a messageId (from toolContext or params).' }
-        }
-        try {
-          const resp = await handle.client.im.messageReaction.create({
-            path: { message_id: messageId },
-            data: { reaction_type: { emoji_type: emoji } },
-          })
-          return {
-            ok: true,
-            message: 'Reacted to Feishu message.',
-            details: { reactionId: (resp as { reaction_id?: string })?.reaction_id },
-          }
-        } catch (err) {
-          return { ok: false, hint: `Feishu react failed: ${String(err)}` }
-        }
-      }
-
-      return { ok: false, hint: `Feishu plugin does not support action "${ctx.action}"` }
-    },
-  } satisfies ChannelMessageActionAdapter,
 })

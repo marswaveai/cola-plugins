@@ -6,6 +6,19 @@
   "exports": {
     ".": "./dist/index.js"
   },
+  "cola": {
+    "plugin": {
+      "id": "feishu",
+      "entry": "./dist/index.js",
+      "minSdkVersion": "0.5.0"
+    },
+    "channel": {
+      "label": "Feishu",
+      "description": "Feishu/Lark messaging via official bot API",
+      "aliases": ["lark"],
+      "docsPath": "/channels/feishu"
+    }
+  },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit"

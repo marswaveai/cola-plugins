@@ -6,16 +6,24 @@
       "label": "Feishu",
       "description": "Feishu/Lark messaging via official bot API",
       "version": "0.1.0",
-      "minSdkVersion": "0.2.0",
+      "minSdkVersion": "0.5.0",
+      "aliases": [
+        "lark"
+      ],
+      "docsPath": "/channels/feishu",
       "downloadUrl": "https://github.com/marswaveai/cola-plugins/releases/download/feishu@0.1.0/feishu-0.1.0.tar.gz"
     },
     {
       "id": "wechat",
       "label": "WeChat",
-      "description": "WeChat messaging via iLink bot protocol",
-      "version": "0.1.1",
-      "minSdkVersion": "0.1.0",
-      "downloadUrl": "https://github.com/marswaveai/cola-plugins/releases/download/wechat@0.1.1/wechat-0.1.1.tar.gz"
+      "description": "WeChat messaging channel via iLink bot protocol",
+      "version": "0.2.0",
+      "minSdkVersion": "0.5.0",
+      "aliases": [
+        "wx"
+      ],
+      "docsPath": "/channels/wechat",
+      "downloadUrl": "https://github.com/marswaveai/cola-plugins/releases/download/wechat@0.2.0/wechat-0.2.0.tar.gz"
     }
   ]
 }

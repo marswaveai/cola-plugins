@@ -11,10 +11,28 @@ type RegistryEntry = {
   description?: string
   version: string
   minSdkVersion?: string
+  aliases?: string[]
+  docsPath?: string
   downloadUrl: string
 }
 
 const entries: RegistryEntry[] = []
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function normalizeStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const entries = value
+    .map((entry) => normalizeString(entry))
+    .filter((entry): entry is string => Boolean(entry))
+  return entries.length > 0 ? entries : undefined
+}
 
 for (const name of fs.readdirSync(pluginsDir)) {
   const dir = path.join(pluginsDir, name)
@@ -24,17 +42,29 @@ for (const name of fs.readdirSync(pluginsDir)) {
   if (!fs.existsSync(pkgPath)) continue
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
 
-  const mod = await import(dir)
-  const plugin = mod.default ?? mod
-  if (!plugin?.id || !plugin?.meta) continue
+  const cola = isRecord(pkg.cola) ? pkg.cola : undefined
+  const plugin = isRecord(cola?.plugin) ? cola.plugin : undefined
+  const channel = isRecord(cola?.channel) ? cola.channel : undefined
+  const id = normalizeString(plugin?.id)
+  const entry = normalizeString(plugin?.entry)
+  const version = normalizeString(pkg.version)
+  if (!id || !entry || !version) continue
+
+  const label = normalizeString(channel?.label) ?? id
+  const description = normalizeString(channel?.description) ?? normalizeString(pkg.description)
+  const minSdkVersion = normalizeString(plugin?.minSdkVersion)
+  const aliases = normalizeStringList(channel?.aliases)
+  const docsPath = normalizeString(channel?.docsPath)
 
   entries.push({
-    id: plugin.id,
-    label: plugin.meta.label ?? plugin.id,
-    description: plugin.meta.description,
-    version: pkg.version,
-    minSdkVersion: plugin.minSdkVersion,
-    downloadUrl: `https://github.com/marswaveai/cola-plugins/releases/download/${plugin.id}@${pkg.version}/${plugin.id}-${pkg.version}.tar.gz`,
+    id,
+    label,
+    ...(description ? { description } : {}),
+    version,
+    ...(minSdkVersion ? { minSdkVersion } : {}),
+    ...(aliases ? { aliases } : {}),
+    ...(docsPath ? { docsPath } : {}),
+    downloadUrl: `https://github.com/marswaveai/cola-plugins/releases/download/${id}@${version}/${id}-${version}.tar.gz`,
   })
 }
 

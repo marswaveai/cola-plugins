@@ -5,8 +5,8 @@ import { defineChannel } from 'cola-plugin-sdk'
 import type {
   GatewayContext,
   OutboundContext,
+  DeliveryContext,
   ChannelStatusResult,
-  ChannelMessageActionAdapter,
 } from 'cola-plugin-sdk'
 import { setApiLogger, setRouteTag, sendTyping as sendTypingApi } from './api/client.js'
 import { setSessionGuardLogger } from './api/session-guard.js'
@@ -14,12 +14,15 @@ import { TypingStatus } from './api/types.js'
 import {
   setPluginDir,
   listAccountIds,
+  loadAccount,
+  clearAccount,
+  unregisterAccountId,
   resolveAccount,
   resolveDefaultAccount,
 } from './auth/accounts.js'
 import type { ResolvedWeixinAccount } from './auth/accounts.js'
 import { performQrLogin } from './auth/qr-login.js'
-import { getContextToken } from './gateway/context-tokens.js'
+import { clearContextTokensForAccount, getContextToken } from './gateway/context-tokens.js'
 import { startMonitor, getConfigManagerForAccount } from './gateway/monitor.js'
 import { StreamingMarkdownFilter } from './outbound/markdown-filter.js'
 import { sendMessageWeixin } from './outbound/send.js'
@@ -31,6 +34,22 @@ const MEDIA_OUTBOUND_TEMP_DIR = path.join(os.tmpdir(), 'cola-wechat-media', 'out
 
 type WechatGatewayState = {
   monitoredAccounts: Set<string>
+}
+
+function resolveWechatRecipient(deliveryContext: DeliveryContext): string {
+  const { to } = deliveryContext
+  return to.startsWith('user:') ? to.slice('user:'.length) : to
+}
+
+function resolveAccountForDelivery(
+  config: Readonly<Record<string, unknown>>,
+  deliveryContext: DeliveryContext,
+): ResolvedWeixinAccount | undefined {
+  if (deliveryContext.accountId) {
+    const account = resolveAccount(deliveryContext.accountId, config)
+    if (account.enabled && account.configured) return account
+  }
+  return resolveDefaultAccount(config) ?? undefined
 }
 
 function isLocalFilePath(mediaUrl: string): boolean {
@@ -45,7 +64,6 @@ function resolveLocalPath(mediaUrl: string): string {
 
 export default defineChannel<WechatGatewayState>({
   id: 'wechat',
-  sessionMode: 'shared',
 
   commands: [
     {
@@ -114,7 +132,6 @@ export default defineChannel<WechatGatewayState>({
 
         startMonitor({
           account,
-          runtime: ctx.runtime,
           deliver: ctx.deliver,
           logger: log,
           abortSignal: ctx.abortSignal,
@@ -135,7 +152,6 @@ export default defineChannel<WechatGatewayState>({
 
         startMonitor({
           account,
-          runtime: ctx.runtime,
           deliver: ctx.deliver,
           logger: log,
           abortSignal: ctx.abortSignal,
@@ -174,15 +190,16 @@ export default defineChannel<WechatGatewayState>({
 
     async sendText(ctx: OutboundContext) {
       const config = ctx.config
-      const account = resolveDefaultAccount(config)
+      const account = resolveAccountForDelivery(config, ctx.deliveryContext)
       if (!account) {
         ctx.logger.error('sendText: no configured WeChat account')
         return
       }
 
-      const contextToken = getContextToken(account.accountId, ctx.channelUserId)
+      const recipient = resolveWechatRecipient(ctx.deliveryContext)
+      const contextToken = getContextToken(account.accountId, recipient)
       await sendMessageWeixin({
-        to: ctx.channelUserId,
+        to: recipient,
         text: ctx.text,
         opts: {
           baseUrl: account.baseUrl,
@@ -195,13 +212,14 @@ export default defineChannel<WechatGatewayState>({
 
     async sendMedia(ctx: OutboundContext & { mediaType: string; filePath: string }) {
       const config = ctx.config
-      const account = resolveDefaultAccount(config)
+      const account = resolveAccountForDelivery(config, ctx.deliveryContext)
       if (!account) {
         ctx.logger.error('sendMedia: no configured WeChat account')
         return
       }
 
-      const contextToken = getContextToken(account.accountId, ctx.channelUserId)
+      const recipient = resolveWechatRecipient(ctx.deliveryContext)
+      const contextToken = getContextToken(account.accountId, recipient)
       let localPath: string
 
       if (isLocalFilePath(ctx.filePath)) {
@@ -215,7 +233,7 @@ export default defineChannel<WechatGatewayState>({
 
       await sendWeixinMediaFile({
         filePath: localPath,
-        to: ctx.channelUserId,
+        to: recipient,
         text: '',
         opts: {
           baseUrl: account.baseUrl,
@@ -228,92 +246,28 @@ export default defineChannel<WechatGatewayState>({
     },
 
     async sendTyping(ctx: OutboundContext & { active: boolean }) {
-      const account = resolveDefaultAccount(ctx.config)
+      const account = resolveAccountForDelivery(ctx.config, ctx.deliveryContext)
       if (!account) return
 
       const configManager = getConfigManagerForAccount(account.accountId)
       if (!configManager) return
 
-      const contextToken = getContextToken(account.accountId, ctx.channelUserId)
-      const cached = await configManager.getForUser(ctx.channelUserId, contextToken)
+      const recipient = resolveWechatRecipient(ctx.deliveryContext)
+      const contextToken = getContextToken(account.accountId, recipient)
+      const cached = await configManager.getForUser(recipient, contextToken)
       if (!cached.typingTicket) return
 
       await sendTypingApi({
         baseUrl: account.baseUrl,
         token: account.token,
         body: {
-          ilink_user_id: ctx.channelUserId,
+          ilink_user_id: recipient,
           typing_ticket: cached.typingTicket,
           status: ctx.active ? TypingStatus.TYPING : TypingStatus.CANCEL,
         },
       })
     },
   },
-
-  messaging: {
-    describeMessageTool: () => ({
-      actions: ['send'],
-    }),
-    async handleAction(ctx) {
-      if (ctx.action !== 'send') {
-        return { ok: false, hint: `WeChat plugin does not support action "${ctx.action}"` }
-      }
-      const account = resolveDefaultAccount(ctx.config)
-      if (!account) {
-        return { ok: false, hint: 'No configured WeChat account. Run /wechat login first.' }
-      }
-
-      const text = typeof ctx.params.text === 'string' ? ctx.params.text : ''
-      const media = typeof ctx.params.media === 'string' ? ctx.params.media : ''
-      const caption = typeof ctx.params.caption === 'string' ? ctx.params.caption : ''
-
-      if (!text && !media) {
-        return { ok: false, hint: 'send requires at least one of `text` or `media`.' }
-      }
-
-      const contextToken = getContextToken(account.accountId, ctx.channelUserId)
-
-      try {
-        if (media) {
-          let localPath: string
-          if (isLocalFilePath(media)) {
-            localPath = resolveLocalPath(media)
-          } else if (media.startsWith('http://') || media.startsWith('https://')) {
-            localPath = await downloadRemoteImageToTemp(media, MEDIA_OUTBOUND_TEMP_DIR, ctx.logger)
-          } else {
-            return { ok: false, hint: `Unsupported media URL scheme: ${media}` }
-          }
-          const result = await sendWeixinMediaFile({
-            filePath: localPath,
-            to: ctx.channelUserId,
-            text: caption || text,
-            opts: {
-              baseUrl: account.baseUrl,
-              token: account.token,
-              contextToken,
-            },
-            cdnBaseUrl: account.cdnBaseUrl,
-            log: ctx.logger,
-          })
-          return { ok: true, message: 'Sent media to WeChat.', details: { messageId: result.messageId } }
-        }
-
-        const result = await sendMessageWeixin({
-          to: ctx.channelUserId,
-          text,
-          opts: {
-            baseUrl: account.baseUrl,
-            token: account.token,
-            contextToken,
-          },
-          log: ctx.logger,
-        })
-        return { ok: true, message: 'Sent text to WeChat.', details: { messageId: result.messageId } }
-      } catch (err) {
-        return { ok: false, hint: `WeChat send failed: ${String(err)}` }
-      }
-    },
-  } satisfies ChannelMessageActionAdapter,
 
   auth: {
     async login(ctx) {
@@ -335,6 +289,25 @@ export default defineChannel<WechatGatewayState>({
       } else {
         ctx.logger.error(`WeChat login failed: ${result.message}`)
       }
+    },
+
+    async disconnect(ctx) {
+      setPluginDir(
+        (ctx.config.pluginDir as string) || path.join(os.homedir(), '.cola', 'channels', 'wechat'),
+      )
+
+      for (const accountId of listAccountIds()) {
+        const account = loadAccount(accountId)
+        if (account?.userId) {
+          await ctx.runtime.identity.unbind(account.userId)
+        }
+        clearContextTokensForAccount(accountId)
+        clearAccount(accountId)
+        unregisterAccountId(accountId)
+      }
+
+      ctx.onStatus?.('disconnected', 'WeChat disconnected')
+      ctx.logger.info('WeChat disconnected')
     },
   },
 })
