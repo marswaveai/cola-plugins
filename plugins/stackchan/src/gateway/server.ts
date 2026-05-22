@@ -64,6 +64,13 @@ export async function startGateway(
   const registry = createDeviceRegistry({ now: () => Date.now() })
   gatewayState.registry = registry
   ctx.state.registry = registry
+  // The plugin host initializes ctx.state = {} (an empty object), so the Maps
+  // declared on StackChanState are absent at startup.  Ensure they exist before
+  // mirroring them onto gatewayState.
+  const s = ctx.state as Partial<StackChanState>
+  s.sessions ??= new Map()
+  s.senders ??= new Map()
+  s.sendersByDevice ??= new Map()
   gatewayState.sessions = ctx.state.sessions
   gatewayState.senders = ctx.state.senders
   gatewayState.sendersByDevice = ctx.state.sendersByDevice
