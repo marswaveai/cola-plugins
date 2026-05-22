@@ -88,9 +88,9 @@ export async function startGateway(
   })
 
   server.on('connection', (socket) => {
-    socket.on('message', (data) => {
-      if (data instanceof Buffer && !looksLikeJson(data)) {
-        handleBinaryFrame(ctx.state, socket, data)
+    socket.on('message', (data, isBinary) => {
+      if (isBinary) {
+        handleBinaryFrame(ctx.state, socket, data as Buffer)
         return
       }
       void handleMessage(ctx, config, registry, socket, data)
@@ -333,12 +333,6 @@ export function handleBinaryFrame(
   if (!session) return
   const samples = int16BufferToFloat32(buf)
   session.pushAudio(samples)
-}
-
-function looksLikeJson(buf: Buffer): boolean {
-  if (buf.length === 0) return false
-  const first = buf[0]!
-  return first === 0x7b /* { */ || first === 0x5b /* [ */
 }
 
 export function send(socket: WebSocket, payload: DeviceServerMessage): void {
