@@ -1,6 +1,6 @@
 import fs from 'fs'
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 import { mimeFromExt, feishuFileType } from './mime.js'
 import path from 'path'
 

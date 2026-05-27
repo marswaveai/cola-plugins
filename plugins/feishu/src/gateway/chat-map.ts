@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { getPluginDir } from '../auth/accounts.js'
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 
 /** In-memory open_id → chat_id map with disk persistence per account */
 export class ChatMap {

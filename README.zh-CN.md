@@ -15,7 +15,7 @@ Cola 官方频道插件仓库。
 - Node.js 22 或更新版本
 - pnpm 10
 
-当前插件 manifest 会将 `cola-plugin-sdk` 声明为依赖。公开仓库首次检出后，请确认这个依赖指向已发布的 npm 版本，或指向你的本地 Cola SDK workspace，再运行 `pnpm install`。
+当前插件 manifest 会将 `@marswave/cola-plugin-sdk` 声明为依赖。公开仓库首次检出后可以直接从 npm 安装依赖。
 
 ## 快速开始
 

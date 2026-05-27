@@ -1,4 +1,4 @@
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 import { decryptAesEcb } from './aes-ecb.js'
 
 export function buildCdnDownloadUrl(encryptedQueryParam: string, cdnBaseUrl: string): string {

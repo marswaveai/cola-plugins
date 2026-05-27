@@ -1,4 +1,4 @@
-import type { PluginCommandDefinition } from 'cola-plugin-sdk'
+import type { PluginCommandDefinition } from '@marswave/cola-plugin-sdk'
 import type { DeviceRegistry } from '../gateway/devices'
 
 export function createStackchanCommands(

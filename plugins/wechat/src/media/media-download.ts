@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 import type { MessageItem } from '../api/types.js'
 import { MessageItemType } from '../api/types.js'
 import { getMimeFromFilename } from './mime.js'

@@ -1,7 +1,7 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
 import { createLarkWSClient } from '../api/client.js'
 import type { FeishuAccountConfig } from '../api/types.js'
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 
 export type WSGatewayHandle = {
   wsClient: lark.WSClient

@@ -23,9 +23,9 @@ importers:
       '@larksuiteoapi/node-sdk':
         specifier: ^1.60.0
         version: 1.60.0
-      cola-plugin-sdk:
-        specifier: link:/Users/mack/.codex/worktrees/607d/cola/packages/plugin-sdk
-        version: link:../../../../../../.codex/worktrees/607d/cola/packages/plugin-sdk
+      '@marswave/cola-plugin-sdk':
+        specifier: ^0.0.1
+        version: 0.0.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -39,9 +39,9 @@ importers:
 
   plugins/stackchan:
     dependencies:
-      cola-plugin-sdk:
-        specifier: link:/Users/mack/.codex/worktrees/607d/cola/packages/plugin-sdk
-        version: link:../../../../../../.codex/worktrees/607d/cola/packages/plugin-sdk
+      '@marswave/cola-plugin-sdk':
+        specifier: ^0.0.1
+        version: 0.0.1
       ws:
         specifier: ^8.18.0
         version: 8.20.0
@@ -64,9 +64,9 @@ importers:
 
   plugins/wechat:
     dependencies:
-      cola-plugin-sdk:
-        specifier: link:/Users/mack/.codex/worktrees/607d/cola/packages/plugin-sdk
-        version: link:../../../../../../.codex/worktrees/607d/cola/packages/plugin-sdk
+      '@marswave/cola-plugin-sdk':
+        specifier: ^0.0.1
+        version: 0.0.1
       qrcode-terminal:
         specifier: 0.12.0
         version: 0.12.0
@@ -395,6 +395,9 @@ packages:
 
   '@larksuiteoapi/node-sdk@1.60.0':
     resolution: {integrity: sha512-MS1eXx7K6HHIyIcCBkJLb21okoa8ZatUGQWZaCCUePm6a37RWFmT6ZKlKvHxAanSX26wNuNlwP0RhgscsE+T6g==}
+
+  '@marswave/cola-plugin-sdk@0.0.1':
+    resolution: {integrity: sha512-TVfnamgC9nvSFjISxpRdbUjvP5q+BHlXizS4M3BCe/Ocl24pxSKdrSGqbUcsqR9S3FG8c5TYq1RjMb6T/Q3OQw==}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -1293,6 +1296,8 @@ snapshots:
       - bufferutil
       - debug
       - utf-8-validate
+
+  '@marswave/cola-plugin-sdk@0.0.1': {}
 
   '@protobufjs/aspromise@1.1.2': {}
 

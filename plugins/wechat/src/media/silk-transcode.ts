@@ -1,4 +1,4 @@
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 
 const SILK_SAMPLE_RATE = 24_000
 

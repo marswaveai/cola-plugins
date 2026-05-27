@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WebSocketServer } from 'ws'
 import { AddressInfo } from 'node:net'
 import { gatewayState, startGateway, stopGateway } from '../../src/gateway/server'
-import type { GatewayContext } from 'cola-plugin-sdk'
+import type { GatewayContext } from '@marswave/cola-plugin-sdk'
 
 describe('startGateway integration', () => {
   let ctx: GatewayContext<typeof gatewayState>

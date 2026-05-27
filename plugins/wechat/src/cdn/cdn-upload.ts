@@ -1,4 +1,4 @@
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 import { encryptAesEcb } from './aes-ecb.js'
 import { redactUrl } from '../util/redact.js'
 

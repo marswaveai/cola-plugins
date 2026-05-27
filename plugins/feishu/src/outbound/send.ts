@@ -1,5 +1,5 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger, ReactionAction } from 'cola-plugin-sdk'
+import type { PluginLogger, ReactionAction } from '@marswave/cola-plugin-sdk'
 import { formatAsPost } from './format.js'
 import { uploadImage, uploadFile } from '../media/upload.js'
 import type { ChatMap } from '../gateway/chat-map.js'

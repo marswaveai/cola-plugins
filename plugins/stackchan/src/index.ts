@@ -1,5 +1,5 @@
-import { defineChannel } from 'cola-plugin-sdk'
-import type { OutboundContext, ChannelStatusResult } from 'cola-plugin-sdk'
+import { defineChannel } from '@marswave/cola-plugin-sdk'
+import type { OutboundContext, ChannelStatusResult } from '@marswave/cola-plugin-sdk'
 import { readConfig } from './config'
 import { gatewayState, scheduleFlush, startGateway, stopGateway, type StackChanState } from './gateway/server'
 import { createStackchanCommands } from './commands/stackchan'

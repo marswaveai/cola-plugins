@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { handleAudioMessage, handleBinaryFrame, type StackChanState } from '../../src/gateway/server'
 import { createDeviceRegistry } from '../../src/gateway/devices'
-import type { GatewayContext } from 'cola-plugin-sdk'
+import type { GatewayContext } from '@marswave/cola-plugin-sdk'
 
 function ctxStub(): GatewayContext<unknown> {
   return {

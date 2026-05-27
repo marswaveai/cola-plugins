@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 
 export const DEFAULT_BASE_URL = 'https://ilinkai.weixin.qq.com'
 export const CDN_BASE_URL = 'https://novac2c.cdn.weixin.qq.com/c2c'

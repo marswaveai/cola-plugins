@@ -1,4 +1,4 @@
-import type { PluginStt, SttStream, SttLanguage } from 'cola-plugin-sdk'
+import type { PluginStt, SttStream, SttLanguage } from '@marswave/cola-plugin-sdk'
 
 export type SttFactory = PluginStt['createStream']
 

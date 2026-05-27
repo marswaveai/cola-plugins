@@ -1,11 +1,11 @@
-import { defineChannel } from 'cola-plugin-sdk'
+import { defineChannel } from '@marswave/cola-plugin-sdk'
 import type {
   GatewayContext,
   OutboundContext,
   ReactionContext,
   DeliveryContext,
   ChannelStatusResult,
-} from 'cola-plugin-sdk'
+} from '@marswave/cola-plugin-sdk'
 import type { FeishuPluginConfig } from './api/types.js'
 import { setPluginDir, resolvePluginDir, parseAccountConfigs } from './auth/accounts.js'
 import { startMonitor, type MonitorHandle } from './gateway/monitor.js'

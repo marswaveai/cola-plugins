@@ -25,7 +25,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "cola-plugin-sdk": "link:/Users/mack/.codex/worktrees/607d/cola/packages/plugin-sdk",
+    "@marswave/cola-plugin-sdk": "^0.0.1",
     "@larksuiteoapi/node-sdk": "^1.60.0"
   },
   "devDependencies": {

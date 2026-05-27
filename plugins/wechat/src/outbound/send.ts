@@ -1,4 +1,4 @@
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 import type { WeixinApiOptions } from '../api/client.js'
 import { sendMessage as sendMessageApi } from '../api/client.js'
 import type { MessageItem, SendMessageReq } from '../api/types.js'

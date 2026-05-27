@@ -1,5 +1,5 @@
 import { WebSocketServer, type WebSocket, type RawData } from 'ws'
-import type { GatewayContext, PluginLogger, SttLanguage } from 'cola-plugin-sdk'
+import type { GatewayContext, PluginLogger, SttLanguage } from '@marswave/cola-plugin-sdk'
 import type { DeviceClientMessage, DeviceServerMessage, StackChanConfig } from '../types'
 import { parseDeviceMessage } from './parse'
 import { createDeviceRegistry, type DeviceRegistry } from './devices'

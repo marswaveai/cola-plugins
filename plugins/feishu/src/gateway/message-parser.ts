@@ -1,5 +1,5 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 import type { FeishuMessageEvent, FeishuPostContent, FeishuPostElement } from '../api/types.js'
 import { downloadMessageResource } from '../media/download.js'
 

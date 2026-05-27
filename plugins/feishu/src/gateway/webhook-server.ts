@@ -1,7 +1,7 @@
 import * as http from 'http'
 import * as lark from '@larksuiteoapi/node-sdk'
 import type { FeishuAccountConfig } from '../api/types.js'
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 
 export type WebhookGatewayHandle = {
   server: http.Server

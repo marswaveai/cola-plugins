@@ -19,9 +19,8 @@ release.
 - Node.js 22 or newer
 - pnpm 10
 
-The current plugin manifests declare `cola-plugin-sdk` as a dependency. For a
-fresh public checkout, make sure that dependency points to a published npm
-version or to your local Cola SDK workspace before running `pnpm install`.
+The current plugin manifests declare `@marswave/cola-plugin-sdk` as a
+dependency. Fresh public checkouts can install dependencies directly from npm.
 
 ## Getting Started
 

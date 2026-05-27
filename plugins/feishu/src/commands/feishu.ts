@@ -1,4 +1,4 @@
-import type { PluginCommandDefinition } from 'cola-plugin-sdk'
+import type { PluginCommandDefinition } from '@marswave/cola-plugin-sdk'
 import type { MonitorHandle } from '../gateway/monitor.js'
 import { redactSecret } from '../util/redact.js'
 

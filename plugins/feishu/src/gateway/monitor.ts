@@ -1,5 +1,5 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger, DeliverFn } from 'cola-plugin-sdk'
+import type { PluginLogger, DeliverFn } from '@marswave/cola-plugin-sdk'
 import type { FeishuAccountConfig } from '../api/types.js'
 import { createLarkClient, createEventDispatcher } from '../api/client.js'
 import { registerMessageHandler, registerReactionHandler } from './event-handler.js'

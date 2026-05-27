@@ -1,5 +1,5 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger, DeliverFn } from 'cola-plugin-sdk'
+import type { PluginLogger, DeliverFn } from '@marswave/cola-plugin-sdk'
 import { parseMessage } from './message-parser.js'
 import { stripBotMention } from '../util/mention.js'
 import { MessageDedup } from './dedup.js'

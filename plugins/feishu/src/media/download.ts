@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger } from '@marswave/cola-plugin-sdk'
 
 /**
  * Download a message resource (image/file) from Feishu and save to a temp file.
