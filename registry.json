@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "feishu",
+      "label": "Feishu",
+      "description": "Feishu/Lark messaging via official bot API",
+      "version": "0.1.0",
+      "minSdkVersion": "0.5.0",
+      "aliases": [
+        "lark"
+      ],
+      "docsPath": "/channels/feishu",
+      "downloadUrl": "https://files.colaos.ai/plugins/feishu/feishu-0.1.0.tar.gz"
+    },
+    {
+      "id": "stackchan",
+      "label": "StackChan",
+      "description": "M5Stack StackChan voice channel over WebSocket",
+      "version": "0.1.0",
+      "minSdkVersion": "0.5.0",
+      "docsPath": "/channels/stackchan",
+      "downloadUrl": "https://files.colaos.ai/plugins/stackchan/stackchan-0.1.0.tar.gz"
+    },
+    {
+      "id": "wechat",
+      "label": "WeChat",
+      "description": "WeChat messaging channel via iLink bot protocol",
+      "version": "0.2.0",
+      "minSdkVersion": "0.5.0",
+      "aliases": [
+        "wx"
+      ],
+      "docsPath": "/channels/wechat",
+      "downloadUrl": "https://files.colaos.ai/plugins/wechat/wechat-0.2.0.tar.gz"
+    }
+  ]
+}

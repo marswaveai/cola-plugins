@@ -1,0 +1,79 @@
+name: Setup ossutil2
+description: Install and configure Alibaba Cloud ossutil 2.x CLI for the current runner OS and architecture
+
+inputs:
+  version:
+    description: ossutil2 version to install
+    default: "2.2.2"
+  endpoint:
+    description: OSS endpoint (e.g. oss-accelerate.aliyuncs.com)
+    required: false
+  region:
+    description: OSS region for signature v4 (e.g. cn-hangzhou). Required by ossutil2.
+    required: false
+  access-key-id:
+    description: Alibaba Cloud Access Key ID
+    required: false
+  access-key-secret:
+    description: Alibaba Cloud Access Key Secret
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Install ossutil2
+      shell: bash
+      env:
+        OSSUTIL_VERSION: ${{ inputs.version }}
+      run: |
+        # Map runner OS/arch to ossutil2 download identifiers
+        case "$RUNNER_OS" in
+          Linux)   OS=linux ;;
+          macOS)   OS=mac ;;
+          Windows) OS=windows ;;
+          *) echo "::error::Unsupported OS: $RUNNER_OS"; exit 1 ;;
+        esac
+        case "$RUNNER_ARCH" in
+          X64)   ARCH=amd64 ;;
+          ARM64) ARCH=arm64 ;;
+          *) echo "::error::Unsupported arch: $RUNNER_ARCH"; exit 1 ;;
+        esac
+
+        URL="https://gosspublic.alicdn.com/ossutil/v2/${OSSUTIL_VERSION}/ossutil-${OSSUTIL_VERSION}-${OS}-${ARCH}.zip"
+        echo "Downloading ossutil ${OSSUTIL_VERSION} for ${OS}-${ARCH}..."
+        echo "  ${URL}"
+        curl -fsSL -o /tmp/ossutil.zip "$URL"
+        unzip -oq /tmp/ossutil.zip -d /tmp/ossutil-install
+
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          EXE=$(find /tmp/ossutil-install -name 'ossutil*.exe' -print -quit)
+          cp "$EXE" "$RUNNER_TEMP/ossutil.exe"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+        else
+          BIN=$(find /tmp/ossutil-install -name 'ossutil' -type f -print -quit)
+          sudo cp "$BIN" /usr/local/bin/ossutil
+          sudo chmod +x /usr/local/bin/ossutil
+        fi
+
+        rm -rf /tmp/ossutil.zip /tmp/ossutil-install
+
+    - name: Configure ossutil2
+      if: inputs.access-key-id != ''
+      shell: bash
+      env:
+        OSS_ENDPOINT: ${{ inputs.endpoint }}
+        OSS_REGION: ${{ inputs.region }}
+        OSS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        OSS_ACCESS_KEY_SECRET: ${{ inputs.access-key-secret }}
+      run: |
+        CONFIG_PATH="$HOME/.ossutilconfig"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          CONFIG_PATH="$USERPROFILE/.ossutilconfig"
+        fi
+        # ossutil2 signature v4 requires region in the config file
+        printf '[Credentials]\nlanguage=EN\nendpoint=%s\naccessKeyID=%s\naccessKeySecret=%s\nregion=%s\n' \
+          "$OSS_ENDPOINT" "$OSS_ACCESS_KEY_ID" "$OSS_ACCESS_KEY_SECRET" "$OSS_REGION" > "$CONFIG_PATH"
+
+    - name: Verify installation
+      shell: bash
+      run: ossutil version

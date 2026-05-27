@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/*/package.json'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Detect version changes
+        id: versions
+        run: |
+          RELEASES=""
+          for dir in plugins/*/; do
+            plugin=$(basename "$dir")
+            pkg="$dir/package.json"
+            [ -f "$pkg" ] || continue
+
+            NEW_VER=$(node -p "require('./$pkg').version")
+
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              # 手动触发:重发全部插件,忽略版本 diff
+              RELEASES="$RELEASES $plugin:$NEW_VER"
+              continue
+            fi
+
+            OLD_VER=$(git show HEAD~1:"$pkg" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version" 2>/dev/null || echo "")
+            if [ "$NEW_VER" != "$OLD_VER" ]; then
+              RELEASES="$RELEASES $plugin:$NEW_VER"
+            fi
+          done
+          echo "releases=$RELEASES" >> "$GITHUB_OUTPUT"
+
+      - name: Setup ossutil
+        uses: ./.github/actions/setup-ossutil
+        with:
+          endpoint: ${{ secrets.ALIYUN_COLAOS_OSS_ENDPOINT }}
+          region: ${{ secrets.ALIYUN_COLAOS_OSS_REGION }}
+          access-key-id: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_ID }}
+          access-key-secret: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_SECRET }}
+
+      - name: Build & upload to OSS
+        if: steps.versions.outputs.releases != ''
+        env:
+          OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
+        run: |
+          for entry in ${{ steps.versions.outputs.releases }}; do
+            plugin="${entry%%:*}"
+            version="${entry##*:}"
+            tarball="${plugin}-${version}.tar.gz"
+            key="plugins/${plugin}/${tarball}"
+
+            echo "=== Publishing $plugin@$version ==="
+
+            # 版本不可变:已存在则跳过(旧版不覆盖、不删除)
+            if ossutil stat "oss://$OSS_BUCKET/$key" &>/dev/null; then
+              echo "oss://$OSS_BUCKET/$key already exists, skipping"
+              continue
+            fi
+
+            pnpm --filter "./plugins/$plugin" run build
+
+            # 打一个自包含目录(含 prod 依赖)
+            staging="staging/$plugin"
+            mkdir -p "$staging"
+            cp "plugins/$plugin/package.json" "$staging/"
+            cp -r "plugins/$plugin/dist" "$staging/dist"
+            (cd "$staging" && npm install --omit=dev --ignore-scripts)
+
+            tar -czf "$tarball" -C "$staging" .
+
+            ossutil cp -f "$tarball" "oss://$OSS_BUCKET/$key" \
+              --cache-control "max-age=31536000"
+
+            rm -rf "$staging" "$tarball"
+          done
+
+      - name: Rebuild & publish registry
+        env:
+          OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
+        run: |
+          pnpm build:registry
+
+          # 上传 manifest 到 OSS(短缓存,保证前端及时拿到新版本)
+          ossutil cp -f registry.json "oss://$OSS_BUCKET/plugins/registry.json" \
+            --cache-control "no-cache"
+
+          # commit 回仓库作为 source of truth(仅在内容变化时)
+          if git diff --quiet registry.json; then
+            echo "registry.json unchanged"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add registry.json
+            git commit -m "chore: update registry.json"
+            git push
+          fi

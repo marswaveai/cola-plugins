@@ -1,0 +1,40 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Detect changed plugins
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD -- plugins/ | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          echo "plugins=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Build & typecheck changed plugins
+        if: steps.changed.outputs.plugins != ''
+        run: |
+          for plugin in ${{ steps.changed.outputs.plugins }}; do
+            echo "=== $plugin ==="
+            pnpm --filter "./plugins/$plugin" run typecheck
+            pnpm --filter "./plugins/$plugin" run build
+            test -f "plugins/$plugin/dist/index.js" || { echo "dist/index.js missing for $plugin"; exit 1; }
+          done

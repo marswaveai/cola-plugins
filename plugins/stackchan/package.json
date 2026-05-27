@@ -1,0 +1,41 @@
+{
+  "name": "cola-plugin-stackchan",
+  "version": "0.1.0",
+  "description": "M5Stack StackChan voice channel plugin for Cola",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "cola": {
+    "plugin": {
+      "id": "stackchan",
+      "entry": "./dist/index.js",
+      "minSdkVersion": "0.5.0"
+    },
+    "channel": {
+      "label": "StackChan",
+      "description": "M5Stack StackChan voice channel over WebSocket",
+      "docsPath": "/channels/stackchan"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@marswave/cola-plugin-sdk": "^0.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
