@@ -2,7 +2,7 @@ import type * as lark from '@larksuiteoapi/node-sdk'
 import type { PluginLogger, DeliverFn } from 'cola-plugin-sdk'
 import type { FeishuAccountConfig } from '../api/types.js'
 import { createLarkClient, createEventDispatcher } from '../api/client.js'
-import { registerMessageHandler } from './event-handler.js'
+import { registerMessageHandler, registerReactionHandler } from './event-handler.js'
 import { startWSGateway } from './ws-gateway.js'
 import { startWebhookGateway } from './webhook-server.js'
 import { MessageDedup } from './dedup.js'
@@ -35,6 +35,14 @@ export function startMonitor(opts: {
 
   // Register event handler
   registerMessageHandler(dispatcher, {
+    client,
+    accountId,
+    logger,
+    deliver,
+    dedup,
+    chatMap,
+  })
+  registerReactionHandler(dispatcher, {
     client,
     accountId,
     logger,

@@ -78,6 +78,9 @@ export default defineChannel<StackChanState>({
     textChunkLimit: 1000,
     async sendText(ctx: OutboundContext) {
       const deviceId = ctx.deliveryContext.to
+      ctx.logger.info(
+        `sendText ENTRY promptId=${ctx.promptId} deviceId=${deviceId} text="${ctx.text.slice(0, 60)}${ctx.text.length > 60 ? '…' : ''}" deliveryContext=${JSON.stringify(ctx.deliveryContext)}`
+      )
       const device = gatewayState.registry?.find(deviceId)
       if (!device) {
         ctx.logger.warn(`no device for outbound text: ${deviceId}`)
@@ -90,16 +93,30 @@ export default defineChannel<StackChanState>({
           socket: device.socket,
           promptId: ctx.promptId,
           synth: async (text) => {
-            if (!config.accessToken) {
-              throw new Error('accessToken not configured')
+            // Prefer Cola-host-provided TTS (uses the user's logged-in
+            // Marswave access token; no plugin-config credentials needed).
+            if (gatewayState.hostTtsSynthesize) {
+              const lang =
+                config.language === 'zh' || config.language === 'en' ? config.language : undefined
+              const buf = await gatewayState.hostTtsSynthesize(
+                text,
+                lang ? { language: lang } : undefined
+              )
+              if (buf) return { audio: buf, format: 'wav' }
+              // null → fall through to plugin-config path
             }
-            return synthesize({
+            // Fallback: plugin-config accessToken (legacy path)
+            if (!config.accessToken) {
+              throw new Error('accessToken not configured (host TTS also unavailable)')
+            }
+            const audio = await synthesize({
               baseUrl: config.ttsBaseUrl,
               accessToken: config.accessToken,
               speakerId: config.speakerId || 'default',
               language: config.language,
               text
             })
+            return { audio, format: 'mp3' }
           }
         })
         gatewayState.senders.set(ctx.promptId, sender)

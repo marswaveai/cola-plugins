@@ -37,7 +37,7 @@ export type DeviceServerMessage =
   | { type: 'transcript.partial'; promptId: string; text: string }
   | { type: 'transcript.final'; promptId: string; text: string }
   | { type: 'reply.start'; promptId: string }
-  | { type: 'reply.sentence'; promptId: string; text: string; ttsBytes: number }
+  | { type: 'reply.sentence'; promptId: string; text: string; ttsBytes: number; ttsFormat?: 'wav' | 'mp3' }
   | { type: 'reply.end'; promptId: string }
   | { type: 'ping'; timestamp: number }
   | { type: 'error'; code: string; message: string; promptId?: string }

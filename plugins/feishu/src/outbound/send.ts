@@ -1,5 +1,5 @@
 import type * as lark from '@larksuiteoapi/node-sdk'
-import type { PluginLogger } from 'cola-plugin-sdk'
+import type { PluginLogger, ReactionAction } from 'cola-plugin-sdk'
 import { formatAsPost } from './format.js'
 import { uploadImage, uploadFile } from '../media/upload.js'
 import type { ChatMap } from '../gateway/chat-map.js'
@@ -73,6 +73,43 @@ export async function sendMedia(
     }
   } catch (err) {
     logger.error(`Failed to send media to ${deliveryTo}`, err)
+    throw err
+  }
+}
+
+/**
+ * Add or remove a native Feishu reaction on an existing message.
+ */
+export async function sendReaction(
+  client: lark.Client,
+  messageId: string,
+  emoji: string,
+  action: ReactionAction,
+  reactionId: string | undefined,
+  logger: PluginLogger,
+): Promise<void> {
+  try {
+    if (action === 'remove') {
+      if (!reactionId) throw new Error('reactionId is required to remove a Feishu reaction')
+      await client.im.messageReaction.delete({
+        path: {
+          message_id: messageId,
+          reaction_id: reactionId,
+        },
+      })
+      return
+    }
+
+    await client.im.messageReaction.create({
+      path: { message_id: messageId },
+      data: {
+        reaction_type: {
+          emoji_type: emoji,
+        },
+      },
+    })
+  } catch (err) {
+    logger.error(`Failed to ${action} reaction ${emoji} on ${messageId}`, err)
     throw err
   }
 }

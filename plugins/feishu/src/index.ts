@@ -2,13 +2,14 @@ import { defineChannel } from 'cola-plugin-sdk'
 import type {
   GatewayContext,
   OutboundContext,
+  ReactionContext,
   DeliveryContext,
   ChannelStatusResult,
 } from 'cola-plugin-sdk'
 import type { FeishuPluginConfig } from './api/types.js'
 import { setPluginDir, resolvePluginDir, parseAccountConfigs } from './auth/accounts.js'
 import { startMonitor, type MonitorHandle } from './gateway/monitor.js'
-import { sendText, sendMedia } from './outbound/send.js'
+import { sendText, sendMedia, sendReaction } from './outbound/send.js'
 import { createFeishuCommands } from './commands/feishu.js'
 import { clearClientCache } from './api/client.js'
 
@@ -61,6 +62,7 @@ export default defineChannel<FeishuGatewayState>({
       image: true,
       file: true,
       markdown: true,
+      reaction: true,
     },
     limits: {
       maxTextLength: 30000,
@@ -210,6 +212,22 @@ export default defineChannel<FeishuGatewayState>({
         ctx.mediaType,
         ctx.filePath,
         handle.chatMap,
+        ctx.logger,
+      )
+    },
+
+    async sendReaction(ctx: ReactionContext) {
+      const handle = resolveMonitorForDelivery(ctx.deliveryContext)
+      if (!handle) {
+        ctx.logger.error('sendReaction: no active Feishu account')
+        return
+      }
+      await sendReaction(
+        handle.client,
+        ctx.messageId,
+        ctx.emoji,
+        ctx.action,
+        ctx.reactionId,
         ctx.logger,
       )
     },

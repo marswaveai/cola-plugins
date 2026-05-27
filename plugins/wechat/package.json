@@ -2,6 +2,7 @@
   "name": "cola-plugin-wechat",
   "version": "0.2.0",
   "description": "WeChat channel plugin for Cola",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": "./dist/index.js"
@@ -24,7 +25,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "cola-plugin-sdk": "^0.4.0",
+    "cola-plugin-sdk": "link:/Users/mack/.codex/worktrees/607d/cola/packages/plugin-sdk",
     "qrcode-terminal": "0.12.0"
   },
   "devDependencies": {

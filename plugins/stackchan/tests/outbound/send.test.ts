@@ -17,8 +17,8 @@ describe('createOutboundSender', () => {
     const sock = fakeSocket() as unknown as import('ws').WebSocket
     const synth = vi
       .fn()
-      .mockResolvedValueOnce(Buffer.from([1, 2]))
-      .mockResolvedValueOnce(Buffer.from([3, 4, 5]))
+      .mockResolvedValueOnce({ audio: Buffer.from([1, 2]), format: 'wav' })
+      .mockResolvedValueOnce({ audio: Buffer.from([3, 4, 5]), format: 'wav' })
     const sender = createOutboundSender({ socket: sock, synth, promptId: 'p1' })
 
     await sender.sendChunk('你好。')
@@ -30,9 +30,21 @@ describe('createOutboundSender', () => {
     const bin = sentRaw.filter((x): x is Buffer => x instanceof Buffer)
 
     expect(json[0]).toEqual({ type: 'reply.start', promptId: 'p1' })
-    expect(json[1]).toEqual({ type: 'reply.sentence', promptId: 'p1', text: '你好。', ttsBytes: 2 })
+    expect(json[1]).toEqual({
+      type: 'reply.sentence',
+      promptId: 'p1',
+      text: '你好。',
+      ttsBytes: 2,
+      ttsFormat: 'wav'
+    })
     expect(bin[0]).toEqual(Buffer.from([1, 2]))
-    expect(json[2]).toEqual({ type: 'reply.sentence', promptId: 'p1', text: '再见。', ttsBytes: 3 })
+    expect(json[2]).toEqual({
+      type: 'reply.sentence',
+      promptId: 'p1',
+      text: '再见。',
+      ttsBytes: 3,
+      ttsFormat: 'wav'
+    })
     expect(bin[1]).toEqual(Buffer.from([3, 4, 5]))
     expect(json.at(-1)).toEqual({ type: 'reply.end', promptId: 'p1' })
   })

@@ -2,7 +2,8 @@ import type { WebSocket } from 'ws'
 import { SentenceBuffer } from './sentence-buffer'
 import type { DeviceServerMessage } from '../types'
 
-export type Synth = (text: string) => Promise<Buffer>
+export type SynthResult = { audio: Buffer; format: 'wav' | 'mp3' } | null
+export type Synth = (text: string) => Promise<SynthResult>
 
 export type OutboundSender = {
   sendChunk(text: string): Promise<void>
@@ -32,19 +33,21 @@ export function createOutboundSender(opts: {
       started = true
       emit({ type: 'reply.start', promptId: opts.promptId })
     }
-    let audio: Buffer | null = null
+    let result: SynthResult = null
     try {
-      audio = await opts.synth(text)
+      result = await opts.synth(text)
     } catch {
-      audio = null
+      result = null
     }
-    emit({
+    const payload: DeviceServerMessage = {
       type: 'reply.sentence',
       promptId: opts.promptId,
       text,
-      ttsBytes: audio?.byteLength ?? 0
-    })
-    if (audio) emitBinary(audio)
+      ttsBytes: result?.audio.byteLength ?? 0
+    }
+    if (result) payload.ttsFormat = result.format
+    emit(payload)
+    if (result) emitBinary(result.audio)
   }
 
   async function sendChunk(text: string): Promise<void> {

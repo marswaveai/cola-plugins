@@ -1,16 +1,16 @@
 {
   "name": "cola-plugins",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "build": "pnpm -r --filter './plugins/*' run build",
     "typecheck": "pnpm -r --filter './plugins/*' run typecheck",
-    "build:registry": "tsx scripts/build-registry.ts"
+    "build:registry": "tsx scripts/build-registry.ts",
+    "test": "vitest run"
   },
   "devDependencies": {
     "tsx": "^4.19.0",
-    "typescript": "^5.8.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.9"
   }
 }

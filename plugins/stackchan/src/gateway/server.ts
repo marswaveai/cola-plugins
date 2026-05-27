@@ -17,6 +17,8 @@ export type StackChanState = {
   senders: Map<string, OutboundSender>      // keyed by promptId
   sendersByDevice: Map<string, Set<string>> // deviceId → set of promptIds
   cleanupOnClose?: (socket: WebSocket) => void
+  /** Cola-host-provided TTS synthesizer. Returns 16 kHz mono WAV bytes. */
+  hostTtsSynthesize?: (text: string, opts?: { language?: 'zh' | 'en' }) => Promise<Buffer | null>
 }
 
 const SERVER_VERSION = '0.1.0'
@@ -80,6 +82,17 @@ export async function startGateway(
     if (id) cleanupDeviceTurn(ctx.state, id)
   }
   gatewayState.cleanupOnClose = ctx.state.cleanupOnClose
+
+  // Pull TTS synthesizer from the host runtime so outbound can use Cola's
+  // accessToken without the user having to paste credentials in plugin config.
+  const hostTts = ctx.runtime.tts
+  if (hostTts?.synthesize) {
+    gatewayState.hostTtsSynthesize = hostTts.synthesize.bind(hostTts)
+    ctx.state.hostTtsSynthesize = gatewayState.hostTtsSynthesize
+    ctx.logger.info('stackchan: using host-provided TTS (runtime.tts.synthesize)')
+  } else {
+    ctx.logger.warn('stackchan: host TTS unavailable; outbound will use plugin config or fall back to text-only')
+  }
 
   const server = new WebSocketServer({
     host: config.host,
