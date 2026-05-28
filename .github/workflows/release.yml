@@ -10,8 +10,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,14 +103,3 @@ jobs:
           # 上传 manifest 到 OSS(短缓存,保证前端及时拿到新版本)
           ossutil cp -f registry.json "oss://$OSS_BUCKET/plugins/registry.json" \
             --cache-control "no-cache"
-
-          # commit 回仓库作为 source of truth(仅在内容变化时)
-          if git diff --quiet registry.json; then
-            echo "registry.json unchanged"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add registry.json
-            git commit -m "chore: update registry.json"
-            git push
-          fi

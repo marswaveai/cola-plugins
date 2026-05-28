@@ -1,4 +1,5 @@
 node_modules
 dist
+registry.json
 *.tsbuildinfo
 .DS_Store

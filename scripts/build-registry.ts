@@ -14,6 +14,7 @@ export type RegistryEntry = {
   minSdkVersion?: string
   aliases?: string[]
   docsPath?: string
+  iconUrl?: string
   downloadUrl: string
 }
 
@@ -50,6 +51,7 @@ export function entryFromPackage(pkg: unknown, publicBase: string): RegistryEntr
   const minSdkVersion = normalizeString(plugin?.minSdkVersion)
   const aliases = normalizeStringList(channel?.aliases)
   const docsPath = normalizeString(channel?.docsPath)
+  const iconUrl = normalizeString(channel?.iconUrl)
   const base = publicBase.replace(/\/+$/, '')
 
   return {
@@ -60,6 +62,7 @@ export function entryFromPackage(pkg: unknown, publicBase: string): RegistryEntr
     ...(minSdkVersion ? { minSdkVersion } : {}),
     ...(aliases ? { aliases } : {}),
     ...(docsPath ? { docsPath } : {}),
+    ...(iconUrl ? { iconUrl } : {}),
     downloadUrl: `${base}/plugins/${id}/${id}-${version}.tar.gz`,
   }
 }

@@ -48,11 +48,14 @@ Run tests:
 pnpm test
 ```
 
-Rebuild the plugin registry:
+Rebuild the plugin registry locally:
 
 ```bash
 pnpm build:registry
 ```
+
+This writes an ignored `registry.json` preview for inspection. Contributors do
+not need to commit generated registry output.
 
 ## Repository Layout
 
@@ -64,7 +67,7 @@ pnpm build:registry
 |   `-- build-registry.ts
 |-- docs/
 |   `-- store-oss.md
-`-- registry.json
+`-- pnpm-workspace.yaml
 ```
 
 Each plugin package follows the same shape:
@@ -96,9 +99,9 @@ Cola reads plugin metadata from each plugin package's `package.json`:
 }
 ```
 
-The root `registry.json` is generated from these manifests. It contains the
-latest public version of each plugin and the tarball URL used by the Cola plugin
-store.
+The plugin registry is generated from these manifests. It contains the latest
+public version of each plugin and the tarball URL used by the Cola plugin store.
+The generated `registry.json` is a release artifact and is ignored by git.
 
 ## Developing a Plugin
 
@@ -117,7 +120,9 @@ When adding a new plugin:
 4. Export a `defineChannel(...)` entrypoint from `src/index.ts`.
 5. Add focused tests for protocol parsing, outbound formatting, and config
    handling where the plugin has non-trivial behavior.
-6. Run `pnpm build`, `pnpm typecheck`, `pnpm test`, and `pnpm build:registry`.
+6. Run `pnpm build`, `pnpm typecheck`, and `pnpm test`. You can run
+   `pnpm build:registry` to inspect the generated store metadata, but do not
+   commit its output.
 
 ## Registry and Release
 
@@ -135,8 +140,8 @@ plugins/{id}/{id}-{version}.tar.gz
 
 The release workflow runs on `main` when a plugin `package.json` changes, and it
 can also be triggered manually. It builds changed plugins, uploads immutable
-tarballs to OSS, rebuilds `registry.json`, uploads the registry with `no-cache`,
-and commits registry changes back to the repository when needed.
+tarballs to OSS, rebuilds `registry.json`, and uploads the generated registry
+with `no-cache`.
 
 See `docs/store-oss.md` for the required OSS secrets, bucket layout, and manual
 re-publish steps.
