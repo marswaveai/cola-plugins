@@ -16,6 +16,7 @@
     "channel": {
       "label": "StackChan",
       "description": "M5Stack StackChan voice channel over WebSocket",
+      "iconUrl": "https://avatars.githubusercontent.com/u/163744889?s=200&v=4",
       "docsPath": "/channels/stackchan"
     }
   },

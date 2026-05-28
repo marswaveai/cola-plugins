@@ -16,6 +16,7 @@
     "channel": {
       "label": "Feishu",
       "description": "Feishu/Lark messaging via official bot API",
+      "iconUrl": "https://www.feishu.cn/favicon.ico",
       "aliases": ["lark"],
       "docsPath": "/channels/feishu"
     }
