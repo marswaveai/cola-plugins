@@ -33,6 +33,10 @@ jobs:
         if: steps.changed.outputs.plugins != ''
         run: |
           for plugin in ${{ steps.changed.outputs.plugins }}; do
+            if [ ! -f "plugins/$plugin/package.json" ]; then
+              echo "Skipping deleted plugin: $plugin"
+              continue
+            fi
             echo "=== $plugin ==="
             pnpm --filter "./plugins/$plugin" run typecheck
             pnpm --filter "./plugins/$plugin" run build

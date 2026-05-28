@@ -43,11 +43,13 @@ pnpm typecheck
 pnpm test
 ```
 
-重新生成插件 registry：
+本地重新生成插件 registry：
 
 ```bash
 pnpm build:registry
 ```
+
+这会写出一个被 git 忽略的 `registry.json` 预览文件，供本地检查。贡献者不需要提交生成出来的 registry。
 
 ## 仓库结构
 
@@ -59,7 +61,7 @@ pnpm build:registry
 |   `-- build-registry.ts
 |-- docs/
 |   `-- store-oss.md
-`-- registry.json
+`-- pnpm-workspace.yaml
 ```
 
 每个插件 package 都遵循相同结构：
@@ -90,7 +92,7 @@ Cola 会从每个插件 package 的 `package.json` 读取插件元数据：
 }
 ```
 
-根目录的 `registry.json` 由这些 manifest 生成。它记录每个插件当前公开发布的最新版本，以及 Cola 插件商店下载 tarball 时使用的 URL。
+插件 registry 由这些 manifest 生成。它记录每个插件当前公开发布的最新版本，以及 Cola 插件商店下载 tarball 时使用的 URL。生成出来的 `registry.json` 属于发布产物，会被 git 忽略。
 
 ## 开发插件
 
@@ -108,7 +110,7 @@ pnpm --filter "./plugins/<id>" run typecheck
 3. 添加供插件商店和设置界面使用的 `cola.channel` 元数据。
 4. 在 `src/index.ts` 导出 `defineChannel(...)` 入口。
 5. 对协议解析、出站格式化、配置处理等非平凡逻辑补充聚焦测试。
-6. 运行 `pnpm build`、`pnpm typecheck`、`pnpm test` 和 `pnpm build:registry`。
+6. 运行 `pnpm build`、`pnpm typecheck` 和 `pnpm test`。可以用 `pnpm build:registry` 本地检查生成的商店元数据，但不要提交它的输出。
 
 ## Registry 与发布
 
@@ -124,7 +126,7 @@ https://files.colaos.ai/plugins/registry.json
 plugins/{id}/{id}-{version}.tar.gz
 ```
 
-发布 workflow 会在 `main` 分支上的插件 `package.json` 变更时运行，也可以手动触发。它会构建变更插件、上传不可变 tarball 到 OSS、重新生成 `registry.json`、以 `no-cache` 上传 registry，并在需要时把 registry 变更提交回仓库。
+发布 workflow 会在 `main` 分支上的插件 `package.json` 变更时运行，也可以手动触发。它会构建变更插件、上传不可变 tarball 到 OSS、重新生成 `registry.json`，并以 `no-cache` 上传生成的 registry。
 
 维护者发布流程和手动重发步骤见 `docs/store-oss.md`。
 

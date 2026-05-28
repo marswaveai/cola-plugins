@@ -16,6 +16,9 @@ Secrets 中,不要写入仓库文档、源码或日志。
 ## 前端契约
 
 前端固定读取:`https://files.colaos.ai/plugins/registry.json`。
+这个 registry 由 release workflow 生成并上传,本仓库不提交生成后的
+`registry.json` 文件。
+消费端接入方式见 [`plugin-store-integration.md`](plugin-store-integration.md)。
 
 结构(每插件一条 = 最新版):
 
