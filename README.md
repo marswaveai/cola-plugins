@@ -42,6 +42,18 @@ Run type checks:
 pnpm typecheck
 ```
 
+Run lint:
+
+```bash
+pnpm lint
+```
+
+Check formatting:
+
+```bash
+pnpm fmt:check
+```
+
 Run tests:
 
 ```bash
@@ -120,9 +132,9 @@ When adding a new plugin:
 4. Export a `defineChannel(...)` entrypoint from `src/index.ts`.
 5. Add focused tests for protocol parsing, outbound formatting, and config
    handling where the plugin has non-trivial behavior.
-6. Run `pnpm build`, `pnpm typecheck`, and `pnpm test`. You can run
-   `pnpm build:registry` to inspect the generated store metadata, but do not
-   commit its output.
+6. Run `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, and
+   `pnpm test`. You can run `pnpm build:registry` to inspect the generated
+   store metadata, but do not commit its output.
 
 ## Registry and Release
 

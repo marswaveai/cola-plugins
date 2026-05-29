@@ -7,6 +7,22 @@
   "exports": {
     ".": "./dist/index.js"
   },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.60.0",
+    "@marswave/cola-plugin-sdk": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "cola": {
     "plugin": {
       "id": "feishu",
@@ -17,24 +33,10 @@
       "label": "Feishu",
       "description": "Feishu/Lark messaging via official bot API",
       "iconUrl": "https://www.feishu.cn/favicon.ico",
-      "aliases": ["lark"],
+      "aliases": [
+        "lark"
+      ],
       "docsPath": "/channels/feishu"
     }
-  },
-  "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@marswave/cola-plugin-sdk": "^0.0.1",
-    "@larksuiteoapi/node-sdk": "^1.60.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsup": "^8.5.1",
-    "typescript": "^5.8.3"
-  },
-  "engines": {
-    "node": ">=22"
   }
 }

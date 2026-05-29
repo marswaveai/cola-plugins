@@ -59,6 +59,24 @@ Run type checks:
 pnpm typecheck
 ```
 
+Run lint:
+
+```bash
+pnpm lint
+```
+
+Check formatting:
+
+```bash
+pnpm fmt:check
+```
+
+Apply formatting:
+
+```bash
+pnpm fmt
+```
+
 Run tests:
 
 ```bash
@@ -162,6 +180,8 @@ Before opening a pull request, please make sure:
 - New or changed behavior has focused tests where practical.
 - `pnpm build` succeeds.
 - `pnpm typecheck` succeeds.
+- `pnpm lint` succeeds.
+- `pnpm fmt:check` succeeds.
 - `pnpm test` succeeds, or the pull request explains why a test could not be
   run.
 - Generated artifacts and local secrets are not committed.

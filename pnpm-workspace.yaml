@@ -1,7 +1,7 @@
 packages:
-  - 'plugins/*'
+  - "plugins/*"
 allowBuilds:
   esbuild: true
   protobufjs: false
 minimumReleaseAgeExclude:
-  - '@marswave/cola-plugin-sdk'
+  - "@marswave/cola-plugin-sdk"

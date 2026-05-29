@@ -37,6 +37,18 @@ pnpm build
 pnpm typecheck
 ```
 
+运行 lint：
+
+```bash
+pnpm lint
+```
+
+检查格式：
+
+```bash
+pnpm fmt:check
+```
+
 运行测试：
 
 ```bash
@@ -110,7 +122,7 @@ pnpm --filter "./plugins/<id>" run typecheck
 3. 添加供插件商店和设置界面使用的 `cola.channel` 元数据。
 4. 在 `src/index.ts` 导出 `defineChannel(...)` 入口。
 5. 对协议解析、出站格式化、配置处理等非平凡逻辑补充聚焦测试。
-6. 运行 `pnpm build`、`pnpm typecheck` 和 `pnpm test`。可以用 `pnpm build:registry` 本地检查生成的商店元数据，但不要提交它的输出。
+6. 运行 `pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm fmt:check` 和 `pnpm test`。可以用 `pnpm build:registry` 本地检查生成的商店元数据，但不要提交它的输出。
 
 ## Registry 与发布
 

@@ -8,10 +8,10 @@ Secrets 中,不要写入仓库文档、源码或日志。
 
 公开 `plugins/` 前缀下有两类对象:
 
-| 对象 | Key | 缓存 |
-|---|---|---|
+| 对象     | Key                                  | 缓存                                |
+| -------- | ------------------------------------ | ----------------------------------- |
 | 插件产物 | `plugins/{id}/{id}-{version}.tar.gz` | `max-age=31536000`(不可变,旧版不删) |
-| manifest | `plugins/registry.json` | `no-cache` |
+| manifest | `plugins/registry.json`              | `no-cache`                          |
 
 ## 前端契约
 

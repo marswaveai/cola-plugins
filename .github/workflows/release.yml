@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'plugins/*/package.json'
+      - "plugins/*/package.json"
   workflow_dispatch:
 
 jobs:

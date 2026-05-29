@@ -17,20 +17,20 @@ GitHub repo 里的生成文件,也不需要维护 registry 表。
 
 ```ts
 type PluginRegistry = {
-  version: 1
-  plugins: PluginRegistryEntry[]
-}
+  version: 1;
+  plugins: PluginRegistryEntry[];
+};
 
 type PluginRegistryEntry = {
-  id: string
-  label: string
-  description?: string
-  version: string
-  minSdkVersion?: string
-  aliases?: string[]
-  docsPath?: string
-  downloadUrl: string
-}
+  id: string;
+  label: string;
+  description?: string;
+  version: string;
+  minSdkVersion?: string;
+  aliases?: string[];
+  docsPath?: string;
+  downloadUrl: string;
+};
 ```
 
 `downloadUrl` 指向不可变 tarball:
