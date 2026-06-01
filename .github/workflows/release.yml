@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -26,11 +26,39 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Validate OSS secrets
+        env:
+          OSS_ENDPOINT: ${{ secrets.ALIYUN_COLAOS_OSS_ENDPOINT }}
+          OSS_REGION: ${{ secrets.ALIYUN_COLAOS_OSS_REGION }}
+          OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_SECRET }}
+          OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
+        run: |
+          missing=()
+          [ -n "$OSS_ENDPOINT" ] || missing+=(ALIYUN_COLAOS_OSS_ENDPOINT)
+          [ -n "$OSS_REGION" ] || missing+=(ALIYUN_COLAOS_OSS_REGION)
+          [ -n "$OSS_ACCESS_KEY_ID" ] || missing+=(ALIYUN_HAIWAI_ACCESS_KEY_ID)
+          [ -n "$OSS_ACCESS_KEY_SECRET" ] || missing+=(ALIYUN_HAIWAI_ACCESS_KEY_SECRET)
+          [ -n "$OSS_BUCKET" ] || missing+=(ALIYUN_COLAOS_OSS_BUCKET)
+
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "::error::Missing required Actions secrets: ${missing[*]}"
+            exit 1
+          fi
+
       - name: Detect version changes
         id: versions
         run: |
           RELEASES=""
+          BASE_SHA="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+              BASE_SHA="HEAD~1"
+            fi
+          fi
+
           for dir in plugins/*/; do
+            dir="${dir%/}"
             plugin=$(basename "$dir")
             pkg="$dir/package.json"
             [ -f "$pkg" ] || continue
@@ -43,7 +71,10 @@ jobs:
               continue
             fi
 
-            OLD_VER=$(git show HEAD~1:"$pkg" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version" 2>/dev/null || echo "")
+            OLD_VER=""
+            if git cat-file -e "$BASE_SHA:$pkg" 2>/dev/null; then
+              OLD_VER=$(git show "$BASE_SHA:$pkg" | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version" 2>/dev/null || echo "")
+            fi
             if [ "$NEW_VER" != "$OLD_VER" ]; then
               RELEASES="$RELEASES $plugin:$NEW_VER"
             fi
