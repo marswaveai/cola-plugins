@@ -1,6 +1,7 @@
 import type { OutboundContext } from "@marswave/cola-plugin-sdk";
 import { TelegramApiClient } from "./api.js";
 import { readTelegramConfig } from "./config.js";
+import { formatTelegramMarkdown } from "./format.js";
 import { extractChatId, extractMessageThreadId } from "./message.js";
 import type { TelegramGatewayState } from "./gateway.js";
 
@@ -14,11 +15,13 @@ export async function sendTelegramText(
   }
 
   const client = state.client ?? new TelegramApiClient({ botToken: config.botToken });
+  const formatted = formatTelegramMarkdown(ctx.text);
 
   await client.sendMessage({
     chatId: extractChatId(ctx.deliveryContext.to),
     messageThreadId: extractMessageThreadId(ctx.deliveryContext.threadId),
-    text: ctx.text,
+    text: formatted.text,
+    parseMode: formatted.parseMode,
   });
 }
 

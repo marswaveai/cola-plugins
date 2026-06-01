@@ -16,11 +16,11 @@ export default defineChannel<TelegramGatewayState>({
   meta: {
     label: "Telegram",
     description: "Telegram messaging via Bot API long polling",
-    markdownCapable: false,
+    markdownCapable: true,
   },
   capabilities: {
     receive: { text: true },
-    send: { text: true, typing: true },
+    send: { text: true, markdown: true, typing: true },
     limits: { maxTextLength: 4096 },
   },
   config: {

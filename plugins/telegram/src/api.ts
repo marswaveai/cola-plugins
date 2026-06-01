@@ -9,6 +9,7 @@ const TELEGRAM_API_BASE_URL = "https://api.telegram.org";
 export type SendMessageOptions = {
   chatId: string;
   text: string;
+  parseMode?: "HTML";
   messageThreadId?: number;
   signal?: AbortSignal;
 };
@@ -73,6 +74,7 @@ export class TelegramApiClient {
       {
         chat_id: coerceTelegramChatId(options.chatId),
         text: options.text,
+        ...(options.parseMode ? { parse_mode: options.parseMode } : {}),
         disable_web_page_preview: false,
         ...(options.messageThreadId !== undefined
           ? { message_thread_id: options.messageThreadId }

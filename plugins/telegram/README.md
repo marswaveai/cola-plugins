@@ -81,5 +81,5 @@ Alias:
 
 ## Notes
 
-- Telegram message text is sent as plain text. Cola markdown is not passed to Telegram as MarkdownV2.
+- Cola replies are converted from Markdown to Telegram HTML before sending. Telegram supports a smaller formatting subset than Cola, so unsupported structures such as tables are sent as readable text.
 - File and media downloads are not implemented yet; non-text Telegram messages without captions are delivered as short textual summaries.
