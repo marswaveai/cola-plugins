@@ -1,7 +1,7 @@
 {
-  "name": "cola-plugin-feishu",
-  "version": "0.1.1",
-  "description": "Feishu/Lark channel plugin for Cola",
+  "name": "cola-plugin-telegram",
+  "version": "0.1.0",
+  "description": "Telegram Bot channel plugin for Cola",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -12,7 +12,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.60.0",
     "@marswave/cola-plugin-sdk": "^0.0.1"
   },
   "devDependencies": {
@@ -25,17 +24,17 @@
   },
   "cola": {
     "plugin": {
-      "id": "feishu",
+      "id": "telegram",
       "entry": "./dist/index.js"
     },
     "channel": {
-      "label": "Feishu",
-      "description": "Feishu/Lark messaging via official bot API",
-      "iconUrl": "https://www.feishu.cn/favicon.ico",
+      "label": "Telegram",
+      "description": "Telegram messaging via Bot API long polling",
+      "iconUrl": "https://telegram.org/img/website_icon.svg",
       "aliases": [
-        "lark"
+        "tg"
       ],
-      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/feishu/README.md"
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/telegram/README.md"
     }
   }
 }

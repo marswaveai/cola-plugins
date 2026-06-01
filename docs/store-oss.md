@@ -33,12 +33,15 @@ Secrets 中,不要写入仓库文档、源码或日志。
       "version": "0.1.0",
       "minSdkVersion": "0.5.0",
       "aliases": ["lark"],
-      "docsPath": "/channels/feishu",
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/feishu/README.md",
       "downloadUrl": "https://files.colaos.ai/plugins/feishu/feishu-0.1.0.tar.gz"
     }
   ]
 }
 ```
+
+插件自己的安装、配置和使用说明放在 `plugins/{id}/README.md`。`docsPath`
+指向 GitHub 上对应的 README,发布 tarball 也会在文件存在时带上这个 README。
 
 ## 维护者配置
 

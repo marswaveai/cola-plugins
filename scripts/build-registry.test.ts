@@ -11,7 +11,7 @@ const pkg = {
       label: "Demo",
       description: "chan desc",
       aliases: ["d"],
-      docsPath: "/channels/demo",
+      docsPath: "https://github.com/marswaveai/cola-plugins/blob/main/plugins/demo/README.md",
     },
   },
 };
@@ -31,6 +31,13 @@ describe("entryFromPackage", () => {
     const entry = entryFromPackage(pkg, base);
     expect(entry?.label).toBe("Demo");
     expect(entry?.description).toBe("chan desc");
+  });
+
+  it("copies the channel docsPath into the registry entry", () => {
+    const entry = entryFromPackage(pkg, base);
+    expect(entry?.docsPath).toBe(
+      "https://github.com/marswaveai/cola-plugins/blob/main/plugins/demo/README.md",
+    );
   });
 
   it("returns undefined when id/entry/version is missing", () => {

@@ -83,6 +83,9 @@ jobs:
             staging="staging/$plugin"
             mkdir -p "$staging"
             cp "plugins/$plugin/package.json" "$staging/"
+            if [ -f "plugins/$plugin/README.md" ]; then
+              cp "plugins/$plugin/README.md" "$staging/"
+            fi
             cp -r "plugins/$plugin/dist" "$staging/dist"
             (cd "$staging" && npm install --omit=dev --ignore-scripts)
 

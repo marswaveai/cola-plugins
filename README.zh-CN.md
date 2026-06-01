@@ -69,6 +69,7 @@ pnpm build:registry
 .
 |-- plugins/
 |   `-- <id>/
+|       `-- README.md
 |-- scripts/
 |   `-- build-registry.ts
 |-- docs/
@@ -79,6 +80,7 @@ pnpm build:registry
 每个插件 package 都遵循相同结构：
 
 - `package.json` 声明 package 元数据、构建脚本，以及 `cola.plugin` / `cola.channel` manifest 字段。
+- `README.md` 写该插件自己的安装、配置和使用说明。
 - `src/index.ts` 导出 `defineChannel(...)` 入口。
 - `dist/index.js` 是构建后的入口文件，由 Cola 加载。
 
@@ -98,7 +100,7 @@ Cola 会从每个插件 package 的 `package.json` 读取插件元数据：
       "label": "Example",
       "description": "Example Cola channel plugin",
       "aliases": ["ex"],
-      "docsPath": "/channels/example"
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/example/README.md"
     }
   }
 }
@@ -118,11 +120,12 @@ pnpm --filter "./plugins/<id>" run typecheck
 新增插件时：
 
 1. 创建 `plugins/<id>/package.json`。
-2. 添加 `cola.plugin.id`、`cola.plugin.entry` 和 `cola.plugin.minSdkVersion`。
-3. 添加供插件商店和设置界面使用的 `cola.channel` 元数据。
-4. 在 `src/index.ts` 导出 `defineChannel(...)` 入口。
-5. 对协议解析、出站格式化、配置处理等非平凡逻辑补充聚焦测试。
-6. 运行 `pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm fmt:check` 和 `pnpm test`。可以用 `pnpm build:registry` 本地检查生成的商店元数据，但不要提交它的输出。
+2. 创建 `plugins/<id>/README.md`，把该插件自己的安装、配置和使用说明写在这里。
+3. 添加 `cola.plugin.id`、`cola.plugin.entry` 和 `cola.plugin.minSdkVersion`。
+4. 添加供插件商店和设置界面使用的 `cola.channel` 元数据，并在 `cola.channel.docsPath` 写入 GitHub README 链接。
+5. 在 `src/index.ts` 导出 `defineChannel(...)` 入口。
+6. 对协议解析、出站格式化、配置处理等非平凡逻辑补充聚焦测试。
+7. 运行 `pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm fmt:check` 和 `pnpm test`。可以用 `pnpm build:registry` 本地检查生成的商店元数据，但不要提交它的输出。
 
 ## Registry 与发布
 
