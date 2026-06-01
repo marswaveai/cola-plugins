@@ -113,7 +113,7 @@ export function getGatewayStatus(ctx: GatewayContext<TelegramGatewayState>): Cha
   };
 }
 
-async function handleUpdate(
+export async function handleUpdate(
   update: TelegramUpdate,
   ctx: GatewayContext<TelegramGatewayState>,
   config: TelegramConfig,
@@ -132,6 +132,14 @@ async function handleUpdate(
   const accountId = ctx.state.me ? String(ctx.state.me.id) : "default";
   const parsed = parseTelegramMessage(message, accountId);
   if (!parsed) return;
+
+  // The configured allowlist is this channel's authorization gate, so bind the
+  // sender to the primary Cola user on first contact. Without a binding the host
+  // drops every message as an "unbound sender" and the bot never replies.
+  if (!(await ctx.runtime.identity.resolve(parsed.sender.id))) {
+    await ctx.runtime.identity.bind(parsed.sender.id);
+    ctx.logger.info(`Bound Telegram sender ${parsed.sender.id} from allowed chat ${chatId}`);
+  }
 
   await ctx.deliver({
     sessionId: parsed.sessionId,
