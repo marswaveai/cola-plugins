@@ -1,6 +1,6 @@
 {
   "name": "cola-plugin-stackchan",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "M5Stack StackChan voice channel plugin for Cola",
   "license": "Apache-2.0",
   "type": "module",
@@ -10,8 +10,7 @@
   "cola": {
     "plugin": {
       "id": "stackchan",
-      "entry": "./dist/index.js",
-      "minSdkVersion": "0.5.0"
+      "entry": "./dist/index.js"
     },
     "channel": {
       "label": "StackChan",
