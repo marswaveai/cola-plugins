@@ -1,5 +1,17 @@
 node_modules
+.pnpm-store/
 dist
 registry.json
 *.tsbuildinfo
 .DS_Store
+
+# Local credentials and runtime state.
+.env
+.env.*
+!.env.example
+.ossutilconfig
+plugins/**/accounts.json
+plugins/**/accounts/
+
+# Internal planning artifacts, not part of the public plugin repo.
+docs/superpowers/

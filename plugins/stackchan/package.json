@@ -7,18 +7,6 @@
   "exports": {
     ".": "./dist/index.js"
   },
-  "cola": {
-    "plugin": {
-      "id": "stackchan",
-      "entry": "./dist/index.js"
-    },
-    "channel": {
-      "label": "StackChan",
-      "description": "M5Stack StackChan voice channel over WebSocket",
-      "iconUrl": "https://avatars.githubusercontent.com/u/163744889?s=200&v=4",
-      "docsPath": "/channels/stackchan"
-    }
-  },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
@@ -37,5 +25,17 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "cola": {
+    "plugin": {
+      "id": "stackchan",
+      "entry": "./dist/index.js"
+    },
+    "channel": {
+      "label": "StackChan",
+      "description": "M5Stack StackChan voice channel over WebSocket",
+      "iconUrl": "https://avatars.githubusercontent.com/u/163744889?s=200&v=4",
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/stackchan/README.md"
+    }
   }
 }

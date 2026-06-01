@@ -17,20 +17,20 @@ GitHub repo 里的生成文件,也不需要维护 registry 表。
 
 ```ts
 type PluginRegistry = {
-  version: 1
-  plugins: PluginRegistryEntry[]
-}
+  version: 1;
+  plugins: PluginRegistryEntry[];
+};
 
 type PluginRegistryEntry = {
-  id: string
-  label: string
-  description?: string
-  version: string
-  minSdkVersion?: string
-  aliases?: string[]
-  docsPath?: string
-  downloadUrl: string
-}
+  id: string;
+  label: string;
+  description?: string;
+  version: string;
+  minSdkVersion?: string;
+  aliases?: string[];
+  docsPath?: string;
+  downloadUrl: string;
+};
 ```
 
 `downloadUrl` 指向不可变 tarball:
@@ -48,7 +48,7 @@ https://files.colaos.ai/plugins/{id}/{id}-{version}.tar.gz
 5. 安装时下载 `downloadUrl` 对应 tarball。
 6. 解包后校验包内 `package.json` 的 `cola.plugin.id` 与 registry 的 `id` 一致,且 `cola.plugin.entry` 指向的文件存在。
 
-tarball 是发布时打好的自包含包,包含 `package.json`、`dist/` 和生产依赖。消费端不应在安装阶段运行第三方 install scripts。
+tarball 是发布时打好的自包含包,包含 `package.json`、`dist/`、插件 `README.md`(如果存在)和生产依赖。消费端不应在安装阶段运行第三方 install scripts。
 
 ## 缓存与失败处理
 

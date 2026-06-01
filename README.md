@@ -42,6 +42,18 @@ Run type checks:
 pnpm typecheck
 ```
 
+Run lint:
+
+```bash
+pnpm lint
+```
+
+Check formatting:
+
+```bash
+pnpm fmt:check
+```
+
 Run tests:
 
 ```bash
@@ -63,6 +75,7 @@ not need to commit generated registry output.
 .
 |-- plugins/
 |   `-- <id>/
+|       `-- README.md
 |-- scripts/
 |   `-- build-registry.ts
 |-- docs/
@@ -74,6 +87,7 @@ Each plugin package follows the same shape:
 
 - `package.json` declares package metadata, build scripts, and `cola.plugin` /
   `cola.channel` manifest fields.
+- `README.md` contains user-facing setup and usage notes for that plugin.
 - `src/index.ts` exports a `defineChannel(...)` entrypoint.
 - `dist/index.js` is the built entrypoint consumed by Cola.
 
@@ -93,7 +107,7 @@ Cola reads plugin metadata from each plugin package's `package.json`:
       "label": "Example",
       "description": "Example Cola channel plugin",
       "aliases": ["ex"],
-      "docsPath": "/channels/example"
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/example/README.md"
     }
   }
 }
@@ -115,14 +129,16 @@ pnpm --filter "./plugins/<id>" run typecheck
 When adding a new plugin:
 
 1. Create `plugins/<id>/package.json`.
-2. Add `cola.plugin.id`, `cola.plugin.entry`, and `cola.plugin.minSdkVersion`.
-3. Add `cola.channel` metadata for the store and settings UI.
-4. Export a `defineChannel(...)` entrypoint from `src/index.ts`.
-5. Add focused tests for protocol parsing, outbound formatting, and config
+2. Create `plugins/<id>/README.md` for the plugin's setup and usage notes.
+3. Add `cola.plugin.id`, `cola.plugin.entry`, and `cola.plugin.minSdkVersion`.
+4. Add `cola.channel` metadata for the store and settings UI, including a
+   GitHub README URL in `cola.channel.docsPath`.
+5. Export a `defineChannel(...)` entrypoint from `src/index.ts`.
+6. Add focused tests for protocol parsing, outbound formatting, and config
    handling where the plugin has non-trivial behavior.
-6. Run `pnpm build`, `pnpm typecheck`, and `pnpm test`. You can run
-   `pnpm build:registry` to inspect the generated store metadata, but do not
-   commit its output.
+7. Run `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, and
+   `pnpm test`. You can run `pnpm build:registry` to inspect the generated
+   store metadata, but do not commit its output.
 
 ## Registry and Release
 
@@ -143,8 +159,8 @@ can also be triggered manually. It builds changed plugins, uploads immutable
 tarballs to OSS, rebuilds `registry.json`, and uploads the generated registry
 with `no-cache`.
 
-See `docs/store-oss.md` for the required OSS secrets, bucket layout, and manual
-re-publish steps.
+See `docs/store-oss.md` for the maintainer release flow and manual re-publish
+steps.
 
 ## Security Notes
 

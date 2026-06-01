@@ -4,9 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/workflows/release.yml'
-      - 'plugins/*/package.json'
-      - 'scripts/build-registry.ts'
+      - "plugins/*/package.json"
   workflow_dispatch:
 
 jobs:
@@ -85,6 +83,9 @@ jobs:
             staging="staging/$plugin"
             mkdir -p "$staging"
             cp "plugins/$plugin/package.json" "$staging/"
+            if [ -f "plugins/$plugin/README.md" ]; then
+              cp "plugins/$plugin/README.md" "$staging/"
+            fi
             cp -r "plugins/$plugin/dist" "$staging/dist"
             (cd "$staging" && npm install --omit=dev --ignore-scripts)
 

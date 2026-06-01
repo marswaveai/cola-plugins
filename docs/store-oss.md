@@ -1,18 +1,17 @@
-# 插件 Store（阿里云 OSS）
+# 插件 Store 发布
 
-插件产物与 manifest 托管在 colaos 的阿里云 OSS bucket(与 Cola 桌面端 release 同一个
-bucket,公开读,CDN 域名 `https://files.colaos.ai`)的 `plugins/` 前缀下。CI 在插件
-改动合入 `main` 时自动构建并发布,上传方案与 Cola 桌面端 `build.yml` 一致
-(`setup-ossutil` 复合 action + ossutil2)。
+插件产物与 manifest 通过维护者配置的对象存储和 CDN 发布。公开读取入口是
+`https://files.colaos.ai/plugins/registry.json`。上传凭据只配置在 GitHub Actions
+Secrets 中,不要写入仓库文档、源码或日志。
 
-## OSS 布局
+## 公开布局
 
-bucket 根下的 `plugins/` 前缀:
+公开 `plugins/` 前缀下有两类对象:
 
-| 对象 | Key | 缓存 |
-|---|---|---|
+| 对象     | Key                                  | 缓存                                |
+| -------- | ------------------------------------ | ----------------------------------- |
 | 插件产物 | `plugins/{id}/{id}-{version}.tar.gz` | `max-age=31536000`(不可变,旧版不删) |
-| manifest | `plugins/registry.json` | `no-cache` |
+| manifest | `plugins/registry.json`              | `no-cache`                          |
 
 ## 前端契约
 
@@ -34,24 +33,21 @@ bucket 根下的 `plugins/` 前缀:
       "version": "0.1.0",
       "minSdkVersion": "0.5.0",
       "aliases": ["lark"],
-      "docsPath": "/channels/feishu",
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/feishu/README.md",
       "downloadUrl": "https://files.colaos.ai/plugins/feishu/feishu-0.1.0.tar.gz"
     }
   ]
 }
 ```
 
-## CI 所需配置
+插件自己的安装、配置和使用说明放在 `plugins/{id}/README.md`。`docsPath`
+指向 GitHub 上对应的 README,发布 tarball 也会在文件存在时带上这个 README。
 
-复用 Cola 桌面端 `build.yml` 的同名 Secrets(把 cola 仓库里的值复制到本仓库
-Settings → Secrets and variables → Actions 即可):
+## 维护者配置
 
-**Secrets**
-- `ALIYUN_COLAOS_OSS_ENDPOINT`(如 `oss-accelerate.aliyuncs.com`)
-- `ALIYUN_COLAOS_OSS_REGION`(如 `cn-hangzhou`,ossutil2 签名 v4 需要)
-- `ALIYUN_HAIWAI_ACCESS_KEY_ID`
-- `ALIYUN_HAIWAI_ACCESS_KEY_SECRET`
-- `ALIYUN_COLAOS_OSS_BUCKET`
+Release workflow 从仓库的 GitHub Actions Secrets 读取对象存储 endpoint、region、
+目标存储空间和上传凭据。实际值只应配置在 GitHub 仓库设置里,不要复制进公开文件。
+上传账号应使用最小权限,只允许写入插件发布所需的对象前缀。
 
 公开域名 `https://files.colaos.ai` 直接写死在 `scripts/build-registry.ts` 的
 `DEFAULT_PUBLIC_BASE`;如需临时覆盖(本地/staging),可设环境变量 `OSS_PUBLIC_BASE`。
