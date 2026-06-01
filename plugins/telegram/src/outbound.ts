@@ -13,9 +13,7 @@ export async function sendTelegramText(
     throw new Error("Telegram bot token is not configured");
   }
 
-  const client =
-    state.client ??
-    new TelegramApiClient({ botToken: config.botToken, apiBaseUrl: config.apiBaseUrl });
+  const client = state.client ?? new TelegramApiClient({ botToken: config.botToken });
 
   await client.sendMessage({
     chatId: extractChatId(ctx.deliveryContext.to),
@@ -33,9 +31,7 @@ export async function sendTelegramTyping(
   const config = readTelegramConfig(ctx.config);
   if (!config.botToken) return;
 
-  const client =
-    state.client ??
-    new TelegramApiClient({ botToken: config.botToken, apiBaseUrl: config.apiBaseUrl });
+  const client = state.client ?? new TelegramApiClient({ botToken: config.botToken });
 
   await client.sendChatAction({
     chatId: extractChatId(ctx.deliveryContext.to),

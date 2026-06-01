@@ -25,7 +25,7 @@ export async function startGateway(ctx: GatewayContext<TelegramGatewayState>): P
   ctx.state.allowedChatIds = [...config.allowedChatIds];
 
   if (!ctx.state.configured) {
-    ctx.logger.warn("Telegram bot token is not configured");
+    ctx.logger.warn("Telegram bot token and allowed chat IDs are required");
     return;
   }
 
@@ -33,7 +33,6 @@ export async function startGateway(ctx: GatewayContext<TelegramGatewayState>): P
   const signal = mergeAbortSignals(ctx.abortSignal, abortController.signal);
   const client = new TelegramApiClient({
     botToken: config.botToken,
-    apiBaseUrl: config.apiBaseUrl,
   });
 
   ctx.state.abortController = abortController;
@@ -88,7 +87,11 @@ export function stopGateway(ctx: GatewayContext<TelegramGatewayState>): void {
 
 export function getGatewayStatus(ctx: GatewayContext<TelegramGatewayState>): ChannelStatusResult {
   if (!ctx.state.configured) {
-    return { connected: false, configured: false, message: "Bot token is not configured" };
+    return {
+      connected: false,
+      configured: false,
+      message: "Bot token and allowed chat IDs are required",
+    };
   }
   if (!ctx.state.connected) {
     return {

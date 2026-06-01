@@ -1,6 +1,5 @@
 export type TelegramConfig = {
   botToken: string;
-  apiBaseUrl: string;
   pollingTimeoutSeconds: number;
   pollIntervalMs: number;
   allowedChatIds: Set<string>;
@@ -8,12 +7,9 @@ export type TelegramConfig = {
   ignoreBotMessages: boolean;
 };
 
-const DEFAULT_API_BASE_URL = "https://api.telegram.org";
-
 export function readTelegramConfig(raw: Readonly<Record<string, unknown>>): TelegramConfig {
   return {
     botToken: readString(raw.botToken),
-    apiBaseUrl: readString(raw.apiBaseUrl, DEFAULT_API_BASE_URL),
     pollingTimeoutSeconds: readNumber(raw.pollingTimeoutSeconds, 25, 1, 50),
     pollIntervalMs: readNumber(raw.pollIntervalMs, 250, 0, 60_000),
     allowedChatIds: parseChatIds(raw.allowedChatIds),
@@ -23,7 +19,7 @@ export function readTelegramConfig(raw: Readonly<Record<string, unknown>>): Tele
 }
 
 export function isTelegramConfigured(config: TelegramConfig): boolean {
-  return config.botToken.length > 0;
+  return config.botToken.length > 0 && config.allowedChatIds.size > 0;
 }
 
 export function redactToken(token: string): string {

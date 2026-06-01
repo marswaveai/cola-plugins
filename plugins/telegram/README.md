@@ -8,7 +8,7 @@ endpoint.
 - Receives Telegram text messages, captions, and lightweight summaries for common non-text message types.
 - Sends Cola replies back to the originating Telegram chat or forum topic.
 - Supports Telegram typing indicators.
-- Can limit accepted messages to specific chat IDs.
+- Only accepts messages from explicitly configured Telegram chat IDs.
 
 ## Requirements
 
@@ -23,24 +23,48 @@ Telegram does not allow `getUpdates` long polling while a webhook is configured.
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the bot token.
 2. Install the Telegram plugin from the Cola plugin store.
-3. Enter the token in the plugin settings.
-4. Add the bot to the target chat, group, or forum topic.
-5. Send a message to the bot and check `/telegram status` in Cola.
+3. Add the bot to the target chat, group, or forum topic.
+4. Send a message in each target chat and collect its chat ID.
+5. Enter the token and allowed chat IDs in the plugin settings.
+6. Check `/telegram status` in Cola.
 
 ## Configuration
 
-| Field                   | Required | Default                    | Description                                                          |
-| ----------------------- | -------- | -------------------------- | -------------------------------------------------------------------- |
-| `botToken`              | Yes      |                            | Telegram bot token from BotFather.                                   |
-| `apiBaseUrl`            | No       | `https://api.telegram.org` | Bot API base URL. Override only for a compatible proxy.              |
-| `allowedChatIds`        | No       | All chats                  | Comma-separated chat IDs accepted by the plugin.                     |
-| `pollingTimeoutSeconds` | No       | `25`                       | Long-poll timeout for `getUpdates`.                                  |
-| `dropPendingUpdates`    | No       | `false`                    | Whether to discard pending Telegram updates when the gateway starts. |
-| `ignoreBotMessages`     | No       | `true`                     | Skip messages sent by Telegram bot accounts.                         |
+| Field                   | Required | Default | Description                                                          |
+| ----------------------- | -------- | ------- | -------------------------------------------------------------------- |
+| `botToken`              | Yes      |         | Telegram bot token from BotFather.                                   |
+| `allowedChatIds`        | Yes      |         | Comma-separated chat IDs accepted by the plugin.                     |
+| `pollingTimeoutSeconds` | No       | `25`    | Long-poll timeout for `getUpdates`.                                  |
+| `dropPendingUpdates`    | No       | `false` | Whether to discard pending Telegram updates when the gateway starts. |
+| `ignoreBotMessages`     | No       | `true`  | Skip messages sent by Telegram bot accounts.                         |
 
-To find a chat ID, temporarily leave `allowedChatIds` empty, send a message to
-the bot, and inspect the Telegram plugin logs or the delivered Cola session
-metadata.
+## Finding Chat IDs
+
+1. Create the bot and copy its token from BotFather.
+2. Add the bot to the target private chat, group, supergroup, or forum topic.
+3. Send a message in that chat. In groups, mention the bot or disable BotFather
+   privacy mode if the bot cannot see normal group messages.
+4. Call Telegram `getUpdates` with the bot token:
+
+```bash
+TOKEN="123456:ABC-DEF..."
+curl "https://api.telegram.org/bot${TOKEN}/getUpdates"
+```
+
+Look for `message.chat.id` in the JSON response. Private chat IDs are usually
+positive numbers; group and supergroup IDs are usually negative numbers, and
+supergroups often start with `-100`. Configure multiple IDs as a comma-separated
+list:
+
+```text
+123456789,-1001234567890
+```
+
+If `getUpdates` says a webhook is active, clear it first:
+
+```bash
+curl "https://api.telegram.org/bot${TOKEN}/deleteWebhook"
+```
 
 ## Commands
 

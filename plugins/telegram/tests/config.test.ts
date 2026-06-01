@@ -12,12 +12,31 @@ describe("telegram config", () => {
 
     expect(isTelegramConfigured(config)).toBe(true);
     expect(config.botToken).toBe("123456:secret");
-    expect(config.apiBaseUrl).toBe("https://api.telegram.org");
     expect(config.pollingTimeoutSeconds).toBe(50);
     expect(config.pollIntervalMs).toBe(0);
     expect([...config.allowedChatIds]).toEqual(["-1001", "2002"]);
     expect(config.dropPendingUpdates).toBe(false);
     expect(config.ignoreBotMessages).toBe(true);
+  });
+
+  it("requires at least one allowed chat id", () => {
+    expect(
+      isTelegramConfigured(
+        readTelegramConfig({
+          botToken: "123456:secret",
+          allowedChatIds: "",
+        }),
+      ),
+    ).toBe(false);
+
+    expect(
+      isTelegramConfigured(
+        readTelegramConfig({
+          botToken: "123456:secret",
+          allowedChatIds: "123456789",
+        }),
+      ),
+    ).toBe(true);
   });
 
   it("redacts tokens without exposing the middle", () => {

@@ -42,9 +42,8 @@ export function createTelegramCommands(
               "**Telegram Config**",
               "",
               `- bot token: ${redactToken(config.botToken)}`,
-              `- api base: ${config.apiBaseUrl}`,
               `- polling timeout: ${config.pollingTimeoutSeconds}s`,
-              `- allowed chats: ${config.allowedChatIds.size || "all"}`,
+              `- allowed chats: ${config.allowedChatIds.size || "(missing)"}`,
               `- drop pending updates: ${config.dropPendingUpdates}`,
             ].join("\n"),
           };

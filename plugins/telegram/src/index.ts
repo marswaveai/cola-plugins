@@ -35,17 +35,12 @@ export default defineChannel<TelegramGatewayState>({
           placeholder: "123456:ABC-DEF...",
         },
         {
-          key: "apiBaseUrl",
-          label: "API base URL",
-          type: "text",
-          defaultValue: "https://api.telegram.org",
-        },
-        {
           key: "allowedChatIds",
           label: "Allowed chat IDs",
           type: "text",
+          required: true,
           placeholder: "-1001234567890,123456789",
-          description: "Comma-separated Telegram chat IDs. Leave empty to accept all chats.",
+          description: "Comma-separated Telegram chat IDs accepted by the plugin.",
         },
         {
           key: "pollingTimeoutSeconds",

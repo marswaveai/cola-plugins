@@ -2,8 +2,9 @@ import type { TelegramResponse, TelegramUpdate, TelegramUser } from "./types.js"
 
 export type TelegramApiClientOptions = {
   botToken: string;
-  apiBaseUrl: string;
 };
+
+const TELEGRAM_API_BASE_URL = "https://api.telegram.org";
 
 export type SendMessageOptions = {
   chatId: string;
@@ -33,11 +34,9 @@ export class TelegramApiError extends Error {
 
 export class TelegramApiClient {
   private readonly botToken: string;
-  private readonly apiBaseUrl: string;
 
   constructor(options: TelegramApiClientOptions) {
     this.botToken = options.botToken;
-    this.apiBaseUrl = options.apiBaseUrl.replace(/\/+$/, "");
   }
 
   async getMe(signal?: AbortSignal): Promise<TelegramUser> {
@@ -102,7 +101,7 @@ export class TelegramApiClient {
     body: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<T> {
-    const response = await fetch(`${this.apiBaseUrl}/bot${this.botToken}/${method}`, {
+    const response = await fetch(`${TELEGRAM_API_BASE_URL}/bot${this.botToken}/${method}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
