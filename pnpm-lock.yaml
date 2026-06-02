@@ -27,8 +27,8 @@ importers:
   plugins/feishu:
     dependencies:
       '@larksuiteoapi/node-sdk':
-        specifier: ^1.60.0
-        version: 1.60.0
+        specifier: ^1.61.1
+        version: 1.66.0
       '@marswave/cola-plugin-sdk':
         specifier: ^0.0.1
         version: 0.0.1
@@ -368,8 +368,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@larksuiteoapi/node-sdk@1.60.0':
-    resolution: {integrity: sha512-MS1eXx7K6HHIyIcCBkJLb21okoa8ZatUGQWZaCCUePm6a37RWFmT6ZKlKvHxAanSX26wNuNlwP0RhgscsE+T6g==}
+  '@larksuiteoapi/node-sdk@1.66.0':
+    resolution: {integrity: sha512-ueKbbdvmVGVie3KvKbvHZqvDC/gg3M0rRDeyQanQWK+i2bQgiiTpIfpqVWvxuTgprV31yqV7HPMjN6KegWSCfA==}
 
   '@marswave/cola-plugin-sdk@0.0.1':
     resolution: {integrity: sha512-TVfnamgC9nvSFjISxpRdbUjvP5q+BHlXizS4M3BCe/Ocl24pxSKdrSGqbUcsqR9S3FG8c5TYq1RjMb6T/Q3OQw==}
@@ -1513,7 +1513,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@larksuiteoapi/node-sdk@1.60.0':
+  '@larksuiteoapi/node-sdk@1.66.0':
     dependencies:
       axios: 1.13.6
       lodash.identity: 3.0.0
