@@ -202,6 +202,35 @@ describe("Feishu message delivery (SDK access gate)", () => {
     expect(payload.message).toContain("[Current message — reply to this]");
   });
 
+  it("uses the prior trigger's time as the start watermark on the next @mention in the same chat", async () => {
+    const list = vi.fn(async () => ({ data: { items: [] } }));
+    const { handler } = register({ botOpenId: "ou_bot", list });
+
+    const first = groupMessage("ou_alice", [botMention("ou_bot")]);
+    first.message.message_id = "trigger1";
+    first.message.create_time = "60000";
+    await handler(first);
+
+    const second = groupMessage("ou_alice", [botMention("ou_bot")]);
+    second.message.message_id = "trigger2";
+    second.message.create_time = "120000";
+    await handler(second);
+
+    expect(list).toHaveBeenCalledTimes(2);
+    // First @ is a cold start: descending window, no start watermark.
+    expect(list.mock.calls[0][0].params).toMatchObject({
+      sort_type: "ByCreateTimeDesc",
+      end_time: "60",
+    });
+    expect(list.mock.calls[0][0].params).not.toHaveProperty("start_time");
+    // Second @ resumes from the first trigger's second (watermark round-trip).
+    expect(list.mock.calls[1][0].params).toMatchObject({
+      sort_type: "ByCreateTimeAsc",
+      start_time: "60",
+      end_time: "120",
+    });
+  });
+
   it("does not fetch group context for a direct message", async () => {
     const { handler, deliver, list } = register({ botOpenId: "ou_bot" });
 
