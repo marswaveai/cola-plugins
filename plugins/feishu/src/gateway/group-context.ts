@@ -72,9 +72,7 @@ export async function fetchGroupContext(opts: {
         | "ByCreateTimeDesc",
       ...(startTimeMs !== undefined ? { start_time: String(Math.floor(startTimeMs / 1000)) } : {}),
     };
-    const res = await client.im.message.list({ params } as Parameters<
-      typeof client.im.message.list
-    >[0]);
+    const res = await client.im.message.list({ params });
     let items = (res?.data?.items ?? []) as GroupContextItem[];
     if (!hasStart) items = [...items].reverse();
     return buildGroupContextBlock(items, { triggerMessageId, maxLines: maxMessages });
