@@ -1,6 +1,7 @@
 import type { PluginCommandDefinition } from "@marswave/cola-plugin-sdk";
 import type { MonitorHandle } from "../gateway/monitor.js";
 import { redactSecret } from "../util/redact.js";
+import { parseAuthorizedOpenIds } from "../auth/authorized-open-ids.js";
 
 export function createFeishuCommands(
   getMonitors: () => Map<string, MonitorHandle>,
@@ -35,9 +36,11 @@ export function createFeishuCommands(
           for (const [id, acct] of Object.entries(accounts)) {
             const appId = typeof acct.appId === "string" ? redactSecret(acct.appId) : "(missing)";
             const domain = (acct.domain as string) ?? "feishu";
-            const mode = (acct.connectionMode as string) ?? "websocket";
             const active = monitors.has(id) ? "active" : "inactive";
-            lines.push(`- **${id}**: appId=${appId}, domain=${domain}, mode=${mode}, ${active}`);
+            const authorized = parseAuthorizedOpenIds(acct.authorizedOpenIds).size;
+            lines.push(
+              `- **${id}**: appId=${appId}, domain=${domain}, authorizedOpenIds=${authorized}, ${active}`,
+            );
           }
           return { reply: lines.join("\n") };
         }

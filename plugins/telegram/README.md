@@ -40,43 +40,20 @@ Telegram does not allow `getUpdates` long polling while a webhook is configured.
 
 ## Finding Chat IDs
 
-1. Create the bot and copy its token from BotFather.
-2. Add the bot to the target private chat, group, supergroup, or forum topic.
-3. Send a message in that chat. In groups, mention the bot or disable BotFather
-   privacy mode if the bot cannot see normal group messages.
-4. Call Telegram `getUpdates` with the bot token:
+`allowedChatIds` must contain Telegram chat IDs, not usernames. For private
+chats, the Telegram user ID is also the chat ID.
 
-```bash
-TOKEN="123456:ABC-DEF..."
-curl "https://api.telegram.org/bot${TOKEN}/getUpdates"
-```
+### Ask @userinfobot
 
-Look for `message.chat.id` in the JSON response. Private chat IDs are usually
-positive numbers; group and supergroup IDs are usually negative numbers, and
-supergroups often start with `-100`. Configure multiple IDs as a comma-separated
-list:
+1. Open [@userinfobot](https://t.me/userinfobot) in Telegram.
+2. Start the bot.
+3. Copy the `Id` value from its reply.
+4. Put that value into `allowedChatIds`, save settings, and reload the gateway.
+
+Configure multiple chat IDs as a comma-separated list:
 
 ```text
-123456789,-1001234567890
-```
-
-If `getUpdates` says a webhook is active, clear it first:
-
-```bash
-curl "https://api.telegram.org/bot${TOKEN}/deleteWebhook"
-```
-
-## Commands
-
-```text
-/telegram status
-/telegram config
-```
-
-Alias:
-
-```text
-/tg status
+123456789,987654321
 ```
 
 ## Notes

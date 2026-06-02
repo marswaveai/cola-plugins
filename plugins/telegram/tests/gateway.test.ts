@@ -10,13 +10,17 @@ function makeCtx(resolveImpl: (id: string) => Promise<string | null> = async () 
   const bind = vi.fn(async () => {});
   const resolve = vi.fn(resolveImpl);
   const deliver = vi.fn(async () => {});
+  const sendMessage = vi.fn(async () => {});
   const ctx = {
-    state: { me: { id: 555, is_bot: true, first_name: "Bot", username: "bot" } },
+    state: {
+      me: { id: 555, is_bot: true, first_name: "Bot", username: "bot" },
+      client: { sendMessage },
+    },
     runtime: { identity: { resolve, bind, unbind: vi.fn() } },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     deliver,
   } as unknown as GatewayContext<TelegramGatewayState>;
-  return { ctx, bind, resolve, deliver };
+  return { ctx, bind, resolve, deliver, sendMessage };
 }
 
 function privateUpdate(chatId: number, fromId: number, text = "hi"): TelegramUpdate {
@@ -52,13 +56,30 @@ describe("telegram gateway identity binding", () => {
     expect(deliver).toHaveBeenCalledTimes(1);
   });
 
-  it("never binds or delivers messages from chats outside the allowlist", async () => {
-    const { ctx, bind, resolve, deliver } = makeCtx();
+  it("replies with access instructions for chats outside the allowlist", async () => {
+    const { ctx, bind, resolve, deliver, sendMessage } = makeCtx();
 
     await handleUpdate(privateUpdate(999, 999), ctx, config);
 
     expect(resolve).not.toHaveBeenCalled();
     expect(bind).not.toHaveBeenCalled();
     expect(deliver).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith({
+      chatId: "999",
+      messageThreadId: undefined,
+      text: [
+        "Cola Telegram: access not configured.",
+        "",
+        "Your Telegram user id:",
+        "```",
+        "999",
+        "```",
+        "",
+        "Your Telegram chat id:",
+        "```",
+        "999",
+        "```",
+      ].join("\n"),
+    });
   });
 });

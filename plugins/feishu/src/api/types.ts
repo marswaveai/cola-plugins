@@ -6,11 +6,9 @@ export type FeishuAccountConfig = {
   appId: string;
   appSecret: string;
   domain?: FeishuDomain;
-  connectionMode?: "websocket" | "webhook";
+  authorizedOpenIds?: string | string[];
   encryptKey?: string;
   verificationToken?: string;
-  webhookPort?: number;
-  webhookPath?: string;
   enabled?: boolean;
 };
 

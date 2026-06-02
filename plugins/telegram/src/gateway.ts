@@ -123,11 +123,13 @@ export async function handleUpdate(
   if (!message) return;
 
   const chatId = String(message.chat.id);
+  if (config.ignoreBotMessages && isFromBot(message)) return;
+
   if (config.allowedChatIds.size > 0 && !config.allowedChatIds.has(chatId)) {
     ctx.logger.info(`Skipping Telegram message from unlisted chat ${chatId}`);
+    await sendAccessNotConfiguredReply(message, ctx, config);
     return;
   }
-  if (config.ignoreBotMessages && isFromBot(message)) return;
 
   const accountId = ctx.state.me ? String(ctx.state.me.id) : "default";
   const parsed = parseTelegramMessage(message, accountId);
@@ -152,6 +154,39 @@ export async function handleUpdate(
     },
     message: parsed.text,
   });
+}
+
+async function sendAccessNotConfiguredReply(
+  message: NonNullable<TelegramUpdate["message"]>,
+  ctx: GatewayContext<TelegramGatewayState>,
+  config: TelegramConfig,
+): Promise<void> {
+  if (!config.botToken) return;
+
+  const client = ctx.state.client ?? new TelegramApiClient({ botToken: config.botToken });
+  try {
+    await client.sendMessage({
+      chatId: String(message.chat.id),
+      messageThreadId: message.message_thread_id,
+      text: accessNotConfiguredMessage(message),
+    });
+  } catch (err) {
+    ctx.logger.warn(`Failed to send Telegram access notice for chat ${message.chat.id}`, err);
+  }
+}
+
+function accessNotConfiguredMessage(message: NonNullable<TelegramUpdate["message"]>): string {
+  const userId = message.from ? String(message.from.id) : undefined;
+  const chatId = String(message.chat.id);
+  const lines = ["Cola Telegram: access not configured.", ""];
+
+  if (userId) {
+    lines.push("Your Telegram user id:", "```", userId, "```", "");
+  }
+
+  lines.push("Your Telegram chat id:", "```", chatId, "```");
+
+  return lines.join("\n");
 }
 
 function resetState(state: TelegramGatewayState): void {

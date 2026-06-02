@@ -1,15 +1,19 @@
 import type * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginLogger, DeliverFn } from "@marswave/cola-plugin-sdk";
+import type { PluginLogger, DeliverFn, PluginRuntime } from "@marswave/cola-plugin-sdk";
 import { parseMessage } from "./message-parser.js";
 import { stripBotMention } from "../util/mention.js";
 import { MessageDedup } from "./dedup.js";
 import type { ChatMap } from "./chat-map.js";
+import { authorizeOpenId } from "../auth/authorized-open-ids.js";
+import { formatAsPost } from "../outbound/format.js";
 
 export type EventHandlerDeps = {
   client: lark.Client;
   accountId: string;
   logger: PluginLogger;
   deliver: DeliverFn;
+  identity: PluginRuntime["identity"];
+  authorizedOpenIds: Set<string>;
   dedup: MessageDedup;
   chatMap: ChatMap;
   botOpenId?: string;
@@ -56,9 +60,20 @@ export function registerMessageHandler(
         return {};
       }
 
+      if (isGroupChat(message.chat_type)) {
+        logger.info(`Skipping Feishu group chat message ${message.message_id}`);
+        await sendUnsupportedGroupChatReply(client, message.chat_id, logger);
+        return {};
+      }
+
       const senderId = sender.sender_id?.open_id;
       if (!senderId) {
         logger.warn("Message missing sender open_id, skipping");
+        return {};
+      }
+      if (!(await authorizeOpenId(deps.identity, deps.authorizedOpenIds, senderId, logger))) {
+        logger.warn(`Skipping Feishu message from unauthorized sender ${senderId}`);
+        await sendAccessNotConfiguredReply(client, message.chat_id, senderId, logger);
         return {};
       }
 
@@ -113,9 +128,6 @@ export function registerMessageHandler(
         return {};
       }
 
-      // Identity resolution and access control live in the host
-      // (plugin-host.ts::createDeliverFn) — single source of truth for the
-      // trust-on-first-contact pairing policy.
       await deliver({
         sessionId: ["chat", accountId, message.chat_id, "sender", senderId],
         sender: { id: senderId },
@@ -174,6 +186,10 @@ async function handleReaction(
     logger.warn("Reaction event missing emoji_type, skipping");
     return;
   }
+  if (!(await authorizeOpenId(deps.identity, deps.authorizedOpenIds, senderId, logger))) {
+    logger.warn(`Skipping Feishu reaction from unauthorized sender ${senderId}`);
+    return;
+  }
 
   const dedupKey =
     data.event_id ??
@@ -203,6 +219,60 @@ async function handleReaction(
     },
     message: `[Feishu reaction ${verb}] emoji=${emojiType} message_id=${messageId}${summary}`,
   });
+}
+
+async function sendAccessNotConfiguredReply(
+  client: lark.Client,
+  chatId: string,
+  senderId: string,
+  logger: PluginLogger,
+): Promise<void> {
+  try {
+    await client.im.message.create({
+      params: { receive_id_type: "chat_id" },
+      data: {
+        receive_id: chatId,
+        content: formatAsPost(accessNotConfiguredMessage(senderId)),
+        msg_type: "post",
+      },
+    });
+  } catch (err) {
+    logger.warn(`Failed to send Feishu access notice for ${senderId}`, err);
+  }
+}
+
+function accessNotConfiguredMessage(senderId: string): string {
+  return [
+    "Cola Feishu: access not configured.",
+    "",
+    "Your Feishu open_id:",
+    "```",
+    senderId,
+    "```",
+  ].join("\n");
+}
+
+async function sendUnsupportedGroupChatReply(
+  client: lark.Client,
+  chatId: string,
+  logger: PluginLogger,
+): Promise<void> {
+  try {
+    await client.im.message.create({
+      params: { receive_id_type: "chat_id" },
+      data: {
+        receive_id: chatId,
+        content: formatAsPost("暂不支持群聊"),
+        msg_type: "post",
+      },
+    });
+  } catch (err) {
+    logger.warn(`Failed to send Feishu group chat unsupported notice for ${chatId}`, err);
+  }
+}
+
+function isGroupChat(chatType: string | undefined): boolean {
+  return chatType === "group";
 }
 
 async function resolveReactedMessageContext(
