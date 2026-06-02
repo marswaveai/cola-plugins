@@ -1,3 +1,5 @@
+import type * as lark from "@larksuiteoapi/node-sdk";
+import type { PluginLogger } from "@marswave/cola-plugin-sdk";
 import type { FeishuPostContent, FeishuPostElement } from "../api/types.js";
 
 export const MAX_CONTEXT_MESSAGES = 50;
@@ -45,6 +47,41 @@ export function buildGroupContextBlock(
   const kept = lines.slice(-maxLines);
   if (kept.length === 0) return undefined;
   return `${CONTEXT_HEADER}\n${kept.join("\n")}`;
+}
+
+export async function fetchGroupContext(opts: {
+  client: lark.Client;
+  logger: PluginLogger;
+  chatId: string;
+  triggerMessageId: string;
+  triggerCreateTimeMs: number;
+  startTimeMs?: number;
+  maxMessages?: number;
+}): Promise<string | undefined> {
+  const { client, logger, chatId, triggerMessageId, triggerCreateTimeMs, startTimeMs } = opts;
+  const maxMessages = opts.maxMessages ?? MAX_CONTEXT_MESSAGES;
+  const hasStart = typeof startTimeMs === "number";
+  try {
+    const params = {
+      container_id_type: "chat" as const,
+      container_id: chatId,
+      page_size: maxMessages,
+      end_time: String(Math.floor(triggerCreateTimeMs / 1000)),
+      sort_type: (hasStart ? "ByCreateTimeAsc" : "ByCreateTimeDesc") as
+        | "ByCreateTimeAsc"
+        | "ByCreateTimeDesc",
+      ...(startTimeMs !== undefined ? { start_time: String(Math.floor(startTimeMs / 1000)) } : {}),
+    };
+    const res = await client.im.message.list({ params } as Parameters<
+      typeof client.im.message.list
+    >[0]);
+    let items = (res?.data?.items ?? []) as GroupContextItem[];
+    if (!hasStart) items = [...items].reverse();
+    return buildGroupContextBlock(items, { triggerMessageId, maxLines: maxMessages });
+  } catch (err) {
+    logger.warn(`feishu: failed to fetch group context for chat ${chatId}`, err);
+    return undefined;
+  }
 }
 
 export function prependGroupContext(currentText: string, block: string | undefined): string {

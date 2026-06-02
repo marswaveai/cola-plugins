@@ -3,6 +3,7 @@ import {
   GroupContextTracker,
   buildGroupContextBlock,
   prependGroupContext,
+  fetchGroupContext,
   type GroupContextItem,
 } from "../src/gateway/group-context.js";
 
@@ -104,5 +105,73 @@ describe("GroupContextTracker", () => {
     t.set("oc_1", 1000);
     expect(t.get("oc_1")).toBe(1000);
     expect(t.get("oc_2")).toBeUndefined();
+  });
+});
+
+const silentLogger = { info() {}, warn() {}, error() {}, debug() {} } as never;
+
+function clientWith(listImpl: (arg: unknown) => unknown) {
+  return { im: { message: { list: listImpl } } } as never;
+}
+
+describe("fetchGroupContext", () => {
+  it("uses an ascending window when a start watermark is provided", async () => {
+    let captured: { params?: Record<string, unknown> } = {};
+    const client = clientWith((arg) => {
+      captured = arg as { params?: Record<string, unknown> };
+      return { data: { items: [userMsg("m1", "hi", "ou_a")] } };
+    });
+    const block = await fetchGroupContext({
+      client,
+      logger: silentLogger,
+      chatId: "oc_1",
+      triggerMessageId: "trigger",
+      triggerCreateTimeMs: 60_000,
+      startTimeMs: 30_000,
+    });
+    expect(captured.params).toMatchObject({
+      container_id_type: "chat",
+      container_id: "oc_1",
+      sort_type: "ByCreateTimeAsc",
+      start_time: "30",
+      end_time: "60",
+    });
+    expect(block).toContain("[ou_a] hi");
+  });
+
+  it("falls back to a descending window (reversed) on cold start", async () => {
+    let captured: { params?: Record<string, unknown> } = {};
+    const client = clientWith((arg) => {
+      captured = arg as { params?: Record<string, unknown> };
+      // SDK returns newest-first under ByCreateTimeDesc
+      return { data: { items: [userMsg("m2", "second", "ou_b"), userMsg("m1", "first", "ou_a")] } };
+    });
+    const block = await fetchGroupContext({
+      client,
+      logger: silentLogger,
+      chatId: "oc_1",
+      triggerMessageId: "trigger",
+      triggerCreateTimeMs: 60_000,
+    });
+    expect(captured.params).toMatchObject({ sort_type: "ByCreateTimeDesc", end_time: "60" });
+    expect(captured.params).not.toHaveProperty("start_time");
+    // reversed back to chronological: first then second
+    expect(block).toBe(
+      "[Recent group messages since your last reply — context only, not all directed at you]\n[ou_a] first\n[ou_b] second",
+    );
+  });
+
+  it("returns undefined and does not throw when the API fails", async () => {
+    const client = clientWith(() => {
+      throw new Error("rate limited");
+    });
+    const block = await fetchGroupContext({
+      client,
+      logger: silentLogger,
+      chatId: "oc_1",
+      triggerMessageId: "trigger",
+      triggerCreateTimeMs: 60_000,
+    });
+    expect(block).toBeUndefined();
   });
 });
