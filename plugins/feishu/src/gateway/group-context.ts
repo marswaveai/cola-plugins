@@ -17,7 +17,11 @@ export type GroupContextItem = {
   body?: { content?: string };
 };
 
-/** Per-monitor in-memory watermark of the last group message we handled per chat. */
+/**
+ * Per-monitor in-memory watermark of the last group message we handled per chat.
+ * Not concurrency-guarded: simultaneous @-mentions in one chat may read the same
+ * watermark and fetch overlapping windows (over-inclusion only, never message loss).
+ */
 export class GroupContextTracker {
   private readonly watermarks = new Map<string, number>();
 
