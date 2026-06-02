@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { registerMessageHandler, registerReactionHandler } from "../src/gateway/event-handler.js";
 import { MessageDedup } from "../src/gateway/dedup.js";
 import type { ChatMap } from "../src/gateway/chat-map.js";
+import { GroupContextTracker } from "../src/gateway/group-context.js";
 
 type Handler = (data: FeishuMessageData) => Promise<Record<string, never>>;
 
@@ -16,6 +17,7 @@ type FeishuMessageData = {
     chat_type: string;
     message_type: string;
     content: string;
+    create_time?: string;
     mentions?: Mention[];
   };
   sender: {
@@ -63,13 +65,14 @@ function botMention(botOpenId: string): Mention {
   return { key: "@_user_1", id: { open_id: botOpenId }, name: "Cola" };
 }
 
-function register(opts: { botOpenId?: string } = {}) {
+function register(opts: { botOpenId?: string; list?: ReturnType<typeof vi.fn> } = {}) {
   const { dispatcher, handlers } = makeDispatcher();
   const logger = makeLogger();
   const deliver = vi.fn(async () => {}) as unknown as DeliverFn;
   const chatMap = { set: vi.fn(), get: vi.fn(), hasUser: vi.fn() } as unknown as ChatMap;
   const create = vi.fn(async () => {});
-  const client = { im: { message: { create } } } as unknown as lark.Client;
+  const list = opts.list ?? vi.fn(async () => ({ data: { items: [] } }));
+  const client = { im: { message: { create, list } } } as unknown as lark.Client;
 
   registerMessageHandler(dispatcher, {
     client,
@@ -78,10 +81,11 @@ function register(opts: { botOpenId?: string } = {}) {
     deliver,
     dedup: new MessageDedup(),
     chatMap,
+    groupContext: new GroupContextTracker(),
     botOpenId: opts.botOpenId,
   });
 
-  return { handler: handlers["im.message.receive_v1"], deliver, chatMap, create };
+  return { handler: handlers["im.message.receive_v1"], deliver, chatMap, create, list };
 }
 
 describe("Feishu message delivery (SDK access gate)", () => {
@@ -167,6 +171,59 @@ describe("Feishu message delivery (SDK access gate)", () => {
     await handler(event);
 
     expect(deliver).not.toHaveBeenCalled();
+  });
+
+  it("prepends fetched group context for a group @mention", async () => {
+    const list = vi.fn(async () => ({
+      data: {
+        items: [
+          {
+            message_id: "ctx1",
+            msg_type: "text",
+            sender: { id: "ou_a", sender_type: "user" },
+            body: { content: JSON.stringify({ text: "几点开会" }) },
+          },
+        ],
+      },
+    }));
+    const { handler, deliver } = register({ botOpenId: "ou_bot", list });
+    const event = groupMessage("ou_alice", [botMention("ou_bot")]);
+    event.message.message_id = "trigger";
+    event.message.create_time = "60000";
+
+    await handler(event);
+
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(deliver).toHaveBeenCalledTimes(1);
+    const payload = (deliver as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(payload.mentionedBot).toBe(true);
+    expect(payload.message).toContain("[Recent group messages since your last reply");
+    expect(payload.message).toContain("[ou_a] 几点开会");
+    expect(payload.message).toContain("[Current message — reply to this]");
+  });
+
+  it("does not fetch group context for a direct message", async () => {
+    const { handler, deliver, list } = register({ botOpenId: "ou_bot" });
+
+    await handler(directMessage("ou_alice"));
+
+    expect(list).not.toHaveBeenCalled();
+    expect(deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it("still delivers without a context block when the fetch fails", async () => {
+    const list = vi.fn().mockRejectedValue(new Error("boom"));
+    const { handler, deliver } = register({ botOpenId: "ou_bot", list });
+    const event = groupMessage("ou_alice", [botMention("ou_bot")]);
+    event.message.message_id = "trigger";
+    event.message.create_time = "60000";
+
+    await handler(event);
+
+    expect(deliver).toHaveBeenCalledTimes(1);
+    const payload = (deliver as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(payload.message).not.toContain("[Recent group messages");
+    expect(payload.message).toBe("hello");
   });
 });
 

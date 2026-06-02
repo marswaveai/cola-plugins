@@ -6,6 +6,7 @@ import { registerMessageHandler, registerReactionHandler } from "./event-handler
 import { startWSGateway } from "./ws-gateway.js";
 import { MessageDedup } from "./dedup.js";
 import { ChatMap } from "./chat-map.js";
+import { GroupContextTracker } from "./group-context.js";
 
 export type MonitorHandle = {
   accountId: string;
@@ -32,11 +33,12 @@ export async function startMonitor(opts: {
   const dispatcher = createEventDispatcher(config);
   const dedup = new MessageDedup();
   const chatMap = new ChatMap(accountId, logger);
+  const groupContext = new GroupContextTracker();
 
   // Bot open_id is required to detect @bot mentions in group chats.
   const botOpenId = await fetchBotOpenId(client, logger);
 
-  const deps = { client, accountId, logger, deliver, dedup, chatMap, botOpenId };
+  const deps = { client, accountId, logger, deliver, dedup, chatMap, groupContext, botOpenId };
 
   // Register event handlers
   registerMessageHandler(dispatcher, deps);

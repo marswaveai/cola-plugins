@@ -4,6 +4,7 @@ import { parseMessage } from "./message-parser.js";
 import { isBotMentioned, stripBotMention } from "../util/mention.js";
 import { MessageDedup } from "./dedup.js";
 import type { ChatMap } from "./chat-map.js";
+import { fetchGroupContext, prependGroupContext, type GroupContextTracker } from "./group-context.js";
 
 export type EventHandlerDeps = {
   client: lark.Client;
@@ -12,6 +13,8 @@ export type EventHandlerDeps = {
   deliver: DeliverFn;
   dedup: MessageDedup;
   chatMap: ChatMap;
+  /** Per-monitor group-context watermark tracker. */
+  groupContext: GroupContextTracker;
   /** Bot's own open_id, used to detect @bot mentions in group chats. */
   botOpenId?: string;
 };
@@ -128,6 +131,27 @@ export function registerMessageHandler(
       // Record chat mapping for outbound routing
       chatMap.set(senderId, message.chat_id);
 
+      const mentioned = isGroup ? isBotMentioned(mentions, deps.botOpenId) : false;
+
+      // For a group @, pull the recent chat history since we last replied and
+      // prepend it as context so the agent understands what is being discussed.
+      let messageText = text;
+      if (isGroup && mentioned) {
+        const createTimeMs = message.create_time ? Number(message.create_time) : undefined;
+        if (createTimeMs && Number.isFinite(createTimeMs)) {
+          const block = await fetchGroupContext({
+            client,
+            logger,
+            chatId: message.chat_id,
+            triggerMessageId: message.message_id,
+            triggerCreateTimeMs: createTimeMs,
+            startTimeMs: deps.groupContext.get(message.chat_id),
+          });
+          messageText = prependGroupContext(text, block);
+          deps.groupContext.set(message.chat_id, createTimeMs);
+        }
+      }
+
       await deliver({
         sessionId: isGroup
           ? ["chat", accountId, message.chat_id]
@@ -136,13 +160,13 @@ export function registerMessageHandler(
         conversation: isGroup
           ? { kind: "group", id: message.chat_id }
           : { kind: "direct", id: senderId },
-        mentionedBot: isGroup ? isBotMentioned(mentions, deps.botOpenId) : undefined,
+        mentionedBot: isGroup ? mentioned : undefined,
         deliveryContext: {
           to: `chat:${message.chat_id}`,
           accountId,
           messageId: message.message_id,
         },
-        message: text,
+        message: messageText,
         attachments: parsed.attachments.length > 0 ? parsed.attachments : undefined,
       });
 
