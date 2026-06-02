@@ -1,0 +1,90 @@
+import { describe, it, expect } from "vitest";
+import {
+  GroupContextTracker,
+  buildGroupContextBlock,
+  prependGroupContext,
+  type GroupContextItem,
+} from "../src/gateway/group-context.js";
+
+const userMsg = (
+  id: string,
+  text: string,
+  sender = "ou_user",
+): GroupContextItem => ({
+  message_id: id,
+  msg_type: "text",
+  sender: { id: sender, sender_type: "user" },
+  body: { content: JSON.stringify({ text }) },
+});
+
+describe("buildGroupContextBlock", () => {
+  it("renders user text lines under the context header", () => {
+    const block = buildGroupContextBlock(
+      [userMsg("m1", "几点开会", "ou_a"), userMsg("m2", "下午三点", "ou_b")],
+      { triggerMessageId: "trigger" },
+    );
+    expect(block).toBe(
+      "[Recent group messages since your last reply — context only, not all directed at you]\n" +
+        "[ou_a] 几点开会\n[ou_b] 下午三点",
+    );
+  });
+
+  it("drops the trigger message and non-user senders", () => {
+    const block = buildGroupContextBlock(
+      [
+        userMsg("trigger", "should be dropped"),
+        { message_id: "bot", msg_type: "text", sender: { id: "cli_x", sender_type: "app" }, body: { content: JSON.stringify({ text: "bot reply" }) } },
+        userMsg("m3", "keep me", "ou_c"),
+      ],
+      { triggerMessageId: "trigger" },
+    );
+    expect(block).toBe(
+      "[Recent group messages since your last reply — context only, not all directed at you]\n[ou_c] keep me",
+    );
+  });
+
+  it("renders placeholders for non-text message types", () => {
+    const block = buildGroupContextBlock(
+      [{ message_id: "i1", msg_type: "image", sender: { id: "ou_a", sender_type: "user" }, body: { content: "{}" } }],
+      { triggerMessageId: "trigger" },
+    );
+    expect(block).toContain("[ou_a] [图片]");
+  });
+
+  it("keeps only the most recent maxLines messages", () => {
+    const items = Array.from({ length: 5 }, (_, i) => userMsg(`m${i}`, `line ${i}`));
+    const block = buildGroupContextBlock(items, { triggerMessageId: "trigger", maxLines: 2 });
+    expect(block).toContain("line 3");
+    expect(block).toContain("line 4");
+    expect(block).not.toContain("line 0");
+  });
+
+  it("returns undefined when nothing remains", () => {
+    expect(buildGroupContextBlock([], { triggerMessageId: "trigger" })).toBeUndefined();
+    expect(
+      buildGroupContextBlock([userMsg("trigger", "only the trigger")], { triggerMessageId: "trigger" }),
+    ).toBeUndefined();
+  });
+});
+
+describe("prependGroupContext", () => {
+  it("returns the current text unchanged when block is undefined", () => {
+    expect(prependGroupContext("hi", undefined)).toBe("hi");
+  });
+
+  it("joins block, current header, and current text", () => {
+    expect(prependGroupContext("帮我确认时间", "BLOCK")).toBe(
+      "BLOCK\n\n[Current message — reply to this]\n帮我确认时间",
+    );
+  });
+});
+
+describe("GroupContextTracker", () => {
+  it("stores and returns per-chat watermarks", () => {
+    const t = new GroupContextTracker();
+    expect(t.get("oc_1")).toBeUndefined();
+    t.set("oc_1", 1000);
+    expect(t.get("oc_1")).toBe(1000);
+    expect(t.get("oc_2")).toBeUndefined();
+  });
+});
