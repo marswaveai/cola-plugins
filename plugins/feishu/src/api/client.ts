@@ -1,4 +1,5 @@
 import * as lark from "@larksuiteoapi/node-sdk";
+import type { PluginLogger } from "@marswave/cola-plugin-sdk";
 import type { FeishuDomain, FeishuAccountConfig } from "./types.js";
 
 function resolveDomain(domain: FeishuDomain | undefined): lark.Domain | string {
@@ -59,6 +60,26 @@ export function createEventDispatcher(config: FeishuAccountConfig): lark.EventDi
     encryptKey: config.encryptKey ?? "",
     verificationToken: config.verificationToken ?? "",
   });
+}
+
+/**
+ * Fetch the bot's own open_id (used to detect @bot mentions in group chats).
+ * Best-effort: returns undefined on failure so group gating degrades gracefully.
+ */
+export async function fetchBotOpenId(
+  client: lark.Client,
+  logger: PluginLogger,
+): Promise<string | undefined> {
+  try {
+    const res = (await client.request({
+      method: "GET",
+      url: "/open-apis/bot/v3/info",
+    })) as { bot?: { open_id?: string } };
+    return res?.bot?.open_id;
+  } catch (err) {
+    logger.warn("Failed to fetch Feishu bot open_id (group @mention detection disabled)", err);
+    return undefined;
+  }
 }
 
 export function getLarkClient(accountId: string): lark.Client | undefined {
