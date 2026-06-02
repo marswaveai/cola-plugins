@@ -6,6 +6,8 @@
 
 - 接收飞书/Lark 的文本、图片、文件和表情回应事件。
 - 从 Cola 向飞书/Lark 发送文本、图片、文件、Markdown 和表情回应消息。
+- 支持私聊和群聊（群聊需 @机器人触发），访问授信由 `cola channel allow[-group]` 统一管理。
+- 支持 `cola channel login feishu` 扫码一键创建应用并自动回写凭据。
 - 固定使用 WebSocket 长连接接收事件，不需要公网服务器。
 - 支持通过 `accounts` 配置多个账号。
 
@@ -19,21 +21,23 @@
 
 ## 配置流程
 
-### 方式一：一键创建飞书智能体应用（推荐）
+### 方式一：扫码一键创建（推荐）
 
-飞书开放平台提供了“一键创建飞书智能体应用”能力，适合把 Cola 接入飞书。创建成功后会
-直接返回 `App ID` 和 `App Secret`，并预置智能体常用的机器人能力和权限。
+插件内置了飞书开放平台的“一键创建飞书智能体应用”流程：扫码即可创建应用，凭据由插件
+通过 SDK 自动回写到配置，无需手动复制 `App ID` / `App Secret`。
 
-1. 打开 [飞书开放平台应用启动器](https://open.feishu.cn/page/launcher)。
-2. 按页面提示扫码或登录飞书。
-3. 选择创建新应用，或选择一个已有应用继续配置。
-4. 创建完成后复制 `App ID` 和 `App Secret`。
-5. 在 Cola 插件商店安装 Feishu 插件。
-6. 打开 Cola 里的 Feishu 插件设置。
-7. 填入 `appId` 和 `appSecret`。
-8. `domain` 选择 `feishu`；如果你使用国际版 Lark，选择 `lark`。
-9. 在 `authorizedOpenIds` 中填入允许使用 Cola 的飞书用户 `open_id`，多个值用逗号分隔。如果不知道获取方式，可以在保存 `appId` 和 `appSecret` 后见[获取用户 open_id](#获取用户-open_id)。
-10. 保存设置，并按 Cola 提示重启或重载 gateway。
+1. 在 Cola 插件商店安装 Feishu 插件。
+2. 运行：
+
+```text
+cola channel login feishu
+```
+
+3. 用飞书扫描终端里的二维码并确认。
+4. 创建成功后，插件会自动把 `appId`、`appSecret` 和 `domain` 写入 `accounts.default`
+   并重载 gateway，扫码用户也会被自动授信，可立即给机器人发消息。
+
+之后再为其他用户或群授信，见[访问授信](#访问授信谁能使用-cola)。
 
 ### 方式二：手动创建飞书自建应用
 
@@ -115,54 +119,63 @@
 2. 打开 Feishu 插件设置。
 3. 填入 `appId` 和 `appSecret`。
 4. `domain` 选择 `feishu` 或 `lark`。
-5. 在 `authorizedOpenIds` 中填入允许使用 Cola 的飞书用户 `open_id`，多个值用逗号分隔。
-6. 保存设置，并按 Cola 提示重启或重载 gateway。
+5. 保存设置，并按 Cola 提示重启或重载 gateway。
+6. 给需要使用 Cola 的用户或群授信，见[访问授信](#访问授信谁能使用-cola)。
 
 Feishu 插件固定使用 WebSocket 长连接模式，不需要公网 HTTP 回调地址。
 
 #### 7. 把机器人加入会话
 
-群聊中，打开群设置，进入 `群机器人`，添加你创建的机器人。很多飞书群聊配置下，用户需要
-@机器人 才会触发 Cola 回复。
+群聊中，打开群设置，进入 `群机器人`，添加你创建的机器人。群聊里必须 @机器人 才会触发
+Cola 回复，且该群需要先被授信（见下文）。
 
-单聊中，直接在飞书里搜索机器人名称并发起会话。如果你的 Cola 部署启用了私聊身份配对，
-需要先把发送者的 `open_id` 加入 `authorizedOpenIds`，保存配置并重载 gateway 后，再让
-该用户给机器人发一条消息完成绑定。
+单聊中，直接在飞书里搜索机器人名称并发起会话。发送者需要先被授信，未授信用户发消息时，
+插件会回复一段包含其 `open_id` 和授信命令的提示。
 
-## 获取用户 open_id
+## 访问授信（谁能使用 Cola）
 
-`authorizedOpenIds` 需要填写飞书/Lark 用户的 `open_id`，通常以 `ou_` 开头。
+谁能通过飞书驱动 Cola 由 Cola 的访问网关统一管理，使用 `cola channel` 命令授信，不再
+通过插件配置里的名单。授信对象有两类：
 
-最简单的方式是先让需要使用 Cola 的用户给机器人发一条消息。插件收到
-未授权用户的消息时，会直接回复一段配对提示，里面包含发送者的 `open_id`，例如：
+- **私聊**：按发送者 `open_id` 授信。
+- **群聊**：按群 `chat_id` 授信整群，且群里必须 @机器人 才会触发。
+
+```text
+cola channel allow         feishu <open_id>   # 授信一个私聊用户
+cola channel revoke        feishu <open_id>   # 取消用户授信
+cola channel allow-group   feishu <chat_id>   # 授信整个群
+cola channel revoke-group  feishu <chat_id>   # 取消群授信
+cola channel allowlist     feishu             # 查看已授信的用户和群
+```
+
+### 怎么拿到 open_id / chat_id
+
+最简单的方式是让对方先触发一次。未授信的用户私聊机器人、或在群里 @机器人时，插件会回复
+一段提示，里面已经带好待执行的命令，例如：
 
 ````text
-Cola Feishu: access not configured.
-
-Your Feishu open_id:
+你还没有被授信，无法使用 Cola。
+请管理员执行：
 ```
-ou_xxx
+cola channel allow feishu ou_xxx
 ```
 ````
 
-复制其中的 `ou_xxx`，填入 `authorizedOpenIds`，保存设置并重载 gateway 后，让该用户再给
-机器人发一条消息即可自动完成绑定。
+群聊里则是：
 
-如果需要从日志排查，也可以搜索新版本插件的提示：
-
-```text
-[plugin:feishu] Skipping Feishu message from unauthorized sender ou_xxx
+````text
+这个群还没有被授信，无法使用 Cola。
+请管理员执行：
 ```
-
-如果你使用的是旧版本插件，也可能看到 host 层日志：
-
-```text
-[plugin:feishu] Ignoring message from unbound sender: ou_xxx
+cola channel allow-group feishu oc_xxx
 ```
+````
 
-如果你在飞书开放平台调试事件，也可以从 `im.message.receive_v1` 事件 payload 的
-`sender.sender_id.open_id` 字段获取。管理员或开发者也可以通过飞书开放平台的用户 ID
-查询工具/API 获取用户的 `open_id`。
+把命令复制到终端执行即可。同一目标的提示有冷却时间，不会刷屏；未 @机器人的群消息会被
+直接忽略，不打扰群成员。
+
+> 从旧版本升级：插件启动时会自动把遗留的 `authorizedOpenIds` 迁移成授信绑定，原有用户
+> 不需要重新授信。
 
 ## 测试
 
@@ -186,12 +199,14 @@ ou_xxx
 
 ## 配置字段
 
-| 字段                | 必需 | 默认值   | 说明                                                               |
-| ------------------- | ---- | -------- | ------------------------------------------------------------------ |
-| `appId`             | 是   |          | 飞书/Lark 机器人应用 ID，例如 `cli_xxx`。                          |
-| `appSecret`         | 是   |          | 机器人应用密钥。请作为 secret 保存。                               |
-| `domain`            | 否   | `feishu` | 国内飞书用 `feishu`，国际版 Lark 用 `lark`。                       |
-| `authorizedOpenIds` | 否   |          | 允许绑定到 Cola 的发送者 `open_id`，多个值用逗号、空格或换行分隔。 |
+| 字段        | 必需 | 默认值   | 说明                                      |
+| ----------- | ---- | -------- | ----------------------------------------- |
+| `appId`     | 是   |          | 飞书/Lark 机器人应用 ID，例如 `cli_xxx`。 |
+| `appSecret` | 是   |          | 机器人应用密钥。请作为 secret 保存。      |
+| `domain`    | 否   | `feishu` | 国内飞书用 `feishu`，国际版 Lark 用 `lark`。 |
+
+谁能使用 Cola 不再通过配置字段控制，改用 `cola channel allow[-group]` 授信，见
+[访问授信](#访问授信谁能使用-cola)。
 
 多账号高级配置可以直接使用 `accounts` 对象：
 
@@ -201,8 +216,7 @@ ou_xxx
     "default": {
       "appId": "cli_xxx",
       "appSecret": "secret",
-      "domain": "feishu",
-      "authorizedOpenIds": "ou_xxx,ou_yyy"
+      "domain": "feishu"
     }
   }
 }
@@ -227,11 +241,10 @@ ou_xxx
 - 应用已经发布，并且发送消息的用户在可用范围内。
 - 机器人已经加入目标会话。
 - 权限包含收消息和以机器人身份发消息的 scope。
-- 群聊里是否需要 @机器人。
-- 发送者的 `open_id` 是否已加入 `authorizedOpenIds`。
-- 保存配置并重载 gateway 后，是否让该 `open_id` 发过消息触发自动绑定。
-- 未授权用户是否收到了 `Cola Feishu: access not configured.` 提示；如果没有，请检查
-  `im:message:send_as_bot` 权限。
+- 群聊里是否 @机器人；该群是否已用 `cola channel allow-group feishu <chat_id>` 授信。
+- 私聊发送者是否已用 `cola channel allow feishu <open_id>` 授信。可用
+  `cola channel allowlist feishu` 查看当前授信列表。
+- 未授信用户是否收到了带授信命令的提示；如果没有，请检查 `im:message:send_as_bot` 权限。
 
 ### 图片或文件失败
 
