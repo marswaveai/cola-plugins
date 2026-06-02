@@ -4,7 +4,11 @@ import { parseMessage } from "./message-parser.js";
 import { isBotMentioned, stripBotMention } from "../util/mention.js";
 import { MessageDedup } from "./dedup.js";
 import type { ChatMap } from "./chat-map.js";
-import { fetchGroupContext, prependGroupContext, type GroupContextTracker } from "./group-context.js";
+import {
+  fetchGroupContext,
+  prependGroupContext,
+  type GroupContextTracker,
+} from "./group-context.js";
 
 export type EventHandlerDeps = {
   client: lark.Client;

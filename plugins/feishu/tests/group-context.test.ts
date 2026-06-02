@@ -7,11 +7,7 @@ import {
   type GroupContextItem,
 } from "../src/gateway/group-context.js";
 
-const userMsg = (
-  id: string,
-  text: string,
-  sender = "ou_user",
-): GroupContextItem => ({
+const userMsg = (id: string, text: string, sender = "ou_user"): GroupContextItem => ({
   message_id: id,
   msg_type: "text",
   sender: { id: sender, sender_type: "user" },
@@ -34,7 +30,12 @@ describe("buildGroupContextBlock", () => {
     const block = buildGroupContextBlock(
       [
         userMsg("trigger", "should be dropped"),
-        { message_id: "bot", msg_type: "text", sender: { id: "cli_x", sender_type: "app" }, body: { content: JSON.stringify({ text: "bot reply" }) } },
+        {
+          message_id: "bot",
+          msg_type: "text",
+          sender: { id: "cli_x", sender_type: "app" },
+          body: { content: JSON.stringify({ text: "bot reply" }) },
+        },
         userMsg("m3", "keep me", "ou_c"),
       ],
       { triggerMessageId: "trigger" },
@@ -46,7 +47,14 @@ describe("buildGroupContextBlock", () => {
 
   it("renders placeholders for non-text message types", () => {
     const block = buildGroupContextBlock(
-      [{ message_id: "i1", msg_type: "image", sender: { id: "ou_a", sender_type: "user" }, body: { content: "{}" } }],
+      [
+        {
+          message_id: "i1",
+          msg_type: "image",
+          sender: { id: "ou_a", sender_type: "user" },
+          body: { content: "{}" },
+        },
+      ],
       { triggerMessageId: "trigger" },
     );
     expect(block).toContain("[ou_a] [图片]");
@@ -61,7 +69,12 @@ describe("buildGroupContextBlock", () => {
         content: JSON.stringify({
           zh_cn: {
             title: "标题",
-            content: [[{ tag: "text", text: "今天开会" }, { tag: "at", user_name: "张三" }]],
+            content: [
+              [
+                { tag: "text", text: "今天开会" },
+                { tag: "at", user_name: "张三" },
+              ],
+            ],
           },
         }),
       },
@@ -81,7 +94,9 @@ describe("buildGroupContextBlock", () => {
   it("returns undefined when nothing remains", () => {
     expect(buildGroupContextBlock([], { triggerMessageId: "trigger" })).toBeUndefined();
     expect(
-      buildGroupContextBlock([userMsg("trigger", "only the trigger")], { triggerMessageId: "trigger" }),
+      buildGroupContextBlock([userMsg("trigger", "only the trigger")], {
+        triggerMessageId: "trigger",
+      }),
     ).toBeUndefined();
   });
 });
