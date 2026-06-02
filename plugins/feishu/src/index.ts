@@ -137,15 +137,21 @@ export default defineChannel<FeishuGatewayState>({
       const monitors = new Map<string, MonitorHandle>();
       ctx.state.monitors = monitors;
 
+      // One-time migration: move any legacy authorizedOpenIds into SDK identity
+      // bindings so previously-authorized users keep access under the access gate.
+      // Reads the raw config (not parseAccountConfigs) so disabled / not-yet-credentialed
+      // accounts still have their legacy allowlist migrated.
+      await migrateLegacyAllowlist(
+        Object.values(config.accounts ?? {}),
+        ctx.runtime.identity,
+        ctx.logger,
+      );
+
       const accounts = parseAccountConfigs(config);
       if (accounts.size === 0) {
         ctx.logger.warn("No Feishu accounts configured");
         return;
       }
-
-      // One-time migration: move any legacy authorizedOpenIds into SDK identity
-      // bindings so previously-authorized users keep access under the access gate.
-      await migrateLegacyAllowlist(accounts.values(), ctx.runtime.identity, ctx.logger);
 
       for (const [accountId, acctConfig] of accounts) {
         try {

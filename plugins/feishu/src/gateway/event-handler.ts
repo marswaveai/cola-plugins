@@ -210,7 +210,10 @@ async function handleReaction(
   const summary = context.summary ? `\nReacted message: ${context.summary}` : "";
 
   // Reactions are inherently per-user actions; deliver as a direct conversation
-  // so the gate authorizes by sender. (Group reaction semantics are not modeled.)
+  // so the gate authorizes by sender. Group reaction semantics are not modeled:
+  // a reaction from an unauthorized user on a group message is gated as a DM, so
+  // the host's user-level unauthorized hint may post into the group chat. Accepted
+  // limitation for this iteration (the per-target cooldown prevents spam).
   await deliver({
     sessionId: context.chatId
       ? ["chat", accountId, context.chatId, "sender", senderId]

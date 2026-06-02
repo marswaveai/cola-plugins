@@ -1,7 +1,7 @@
 import type * as lark from "@larksuiteoapi/node-sdk";
 import type { DeliverFn, PluginLogger } from "@marswave/cola-plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
-import { registerMessageHandler } from "../src/gateway/event-handler.js";
+import { registerMessageHandler, registerReactionHandler } from "../src/gateway/event-handler.js";
 import { MessageDedup } from "../src/gateway/dedup.js";
 import type { ChatMap } from "../src/gateway/chat-map.js";
 
@@ -157,5 +157,74 @@ describe("Feishu message delivery (SDK access gate)", () => {
     });
 
     expect(deliver).not.toHaveBeenCalled();
+  });
+
+  it("skips delivery when text is only the bot mention and there are no attachments", async () => {
+    const { handler, deliver } = register({ botOpenId: "ou_bot" });
+    const event = groupMessage("ou_alice", [botMention("ou_bot")]);
+    event.message.content = JSON.stringify({ text: "@_user_1" });
+
+    await handler(event);
+
+    expect(deliver).not.toHaveBeenCalled();
+  });
+});
+
+type ReactionData = {
+  message_id?: string;
+  user_id?: { open_id?: string };
+  reaction_type?: { emoji_type?: string };
+  event_id?: string;
+};
+
+describe("Feishu reaction delivery (SDK access gate)", () => {
+  it("delivers a reaction as a direct conversation routed to the reacted chat", async () => {
+    let handler!: (data: ReactionData) => Promise<unknown>;
+    const dispatcher = {
+      register(events: Record<string, (data: ReactionData) => Promise<Record<string, never>>>) {
+        handler = events["im.message.reaction.created_v1"];
+      },
+    } as unknown as lark.EventDispatcher;
+
+    const deliver = vi.fn(async () => {}) as unknown as DeliverFn;
+    const chatMap = { set: vi.fn(), get: vi.fn(), hasUser: vi.fn() } as unknown as ChatMap;
+    const get = vi.fn(async () => ({
+      data: {
+        items: [
+          { chat_id: "chat1", msg_type: "text", body: { content: JSON.stringify({ text: "hi" }) } },
+        ],
+      },
+    }));
+    const client = { im: { message: { get } } } as unknown as lark.Client;
+
+    registerReactionHandler(dispatcher, {
+      client,
+      accountId: "default",
+      logger: makeLogger(),
+      deliver,
+      dedup: new MessageDedup(),
+      chatMap,
+    });
+
+    await handler({
+      message_id: "m9",
+      user_id: { open_id: "ou_alice" },
+      reaction_type: { emoji_type: "THUMBSUP" },
+      event_id: "e1",
+    });
+
+    expect(deliver).toHaveBeenCalledTimes(1);
+    expect(deliver).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: ["chat", "default", "chat1", "sender", "ou_alice"],
+        sender: { id: "ou_alice" },
+        conversation: { kind: "direct", id: "ou_alice" },
+        deliveryContext: expect.objectContaining({
+          to: "chat:chat1",
+          accountId: "default",
+          messageId: "m9",
+        }),
+      }),
+    );
   });
 });
