@@ -21,3 +21,15 @@ export function stripBotMention(
 
   return text;
 }
+
+/**
+ * Whether the bot itself was @mentioned in the message.
+ * Used to gate group-chat delivery (the SDK access gate requires `mentionedBot`).
+ */
+export function isBotMentioned(
+  mentions: FeishuMention[] | undefined,
+  botOpenId: string | undefined,
+): boolean {
+  if (!botOpenId || !mentions?.length) return false;
+  return mentions.some((mention) => mention.id.open_id === botOpenId);
+}
