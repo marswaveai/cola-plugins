@@ -1,3 +1,5 @@
+import type { FeishuPostContent, FeishuPostElement } from "../api/types.js";
+
 export const MAX_CONTEXT_MESSAGES = 50;
 
 const PER_LINE_MAX = 300;
@@ -91,20 +93,36 @@ function extractText(content: string | undefined): string | undefined {
 function extractPostText(content: string | undefined): string | undefined {
   if (!content) return undefined;
   try {
-    const parsed = JSON.parse(content) as { content?: unknown; title?: unknown };
+    const parsed = JSON.parse(content) as Record<string, FeishuPostContent>;
+    // Post content is language-keyed; prefer zh_cn, then en_us, then first available.
+    const post = parsed.zh_cn ?? parsed.en_us ?? Object.values(parsed)[0];
+    if (!post) return "[富文本]";
     const segments: string[] = [];
-    if (typeof parsed.title === "string" && parsed.title.trim()) segments.push(parsed.title);
-    if (Array.isArray(parsed.content)) {
-      for (const node of parsed.content.flat()) {
-        if (node && typeof node === "object" && "text" in node && typeof node.text === "string") {
-          segments.push(node.text);
-        }
-      }
+    if (typeof post.title === "string" && post.title.trim()) segments.push(post.title);
+    for (const paragraph of post.content ?? []) {
+      segments.push(paragraph.map(postElementToText).join(""));
     }
     const text = normalizeWhitespace(segments.join(" "));
     return text || "[富文本]";
   } catch {
     return "[富文本]";
+  }
+}
+
+function postElementToText(elem: FeishuPostElement): string {
+  switch (elem.tag) {
+    case "text":
+      return elem.text;
+    case "a":
+      return `[${elem.text}](${elem.href})`;
+    case "at":
+      return `@${elem.user_name ?? elem.user_id}`;
+    case "img":
+      return "[图片]";
+    case "md":
+      return elem.text;
+    default:
+      return "";
   }
 }
 

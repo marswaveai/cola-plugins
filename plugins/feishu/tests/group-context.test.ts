@@ -51,6 +51,24 @@ describe("buildGroupContextBlock", () => {
     expect(block).toContain("[ou_a] [图片]");
   });
 
+  it("extracts language-keyed post (rich text) content", () => {
+    const post: GroupContextItem = {
+      message_id: "p1",
+      msg_type: "post",
+      sender: { id: "ou_a", sender_type: "user" },
+      body: {
+        content: JSON.stringify({
+          zh_cn: {
+            title: "标题",
+            content: [[{ tag: "text", text: "今天开会" }, { tag: "at", user_name: "张三" }]],
+          },
+        }),
+      },
+    };
+    const block = buildGroupContextBlock([post], { triggerMessageId: "trigger" });
+    expect(block).toContain("[ou_a] 标题 今天开会@张三");
+  });
+
   it("keeps only the most recent maxLines messages", () => {
     const items = Array.from({ length: 5 }, (_, i) => userMsg(`m${i}`, `line ${i}`));
     const block = buildGroupContextBlock(items, { triggerMessageId: "trigger", maxLines: 2 });
