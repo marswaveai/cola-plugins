@@ -9,6 +9,7 @@ import type {
 import type { FeishuPluginConfig } from "./api/types.js";
 import { setPluginDir, resolvePluginDir, parseAccountConfigs } from "./auth/accounts.js";
 import { migrateLegacyAllowlist } from "./auth/legacy-allowlist.js";
+import { createFeishuAuth } from "./auth/login.js";
 import { startMonitor, type MonitorHandle } from "./gateway/monitor.js";
 import { sendText, sendMedia, sendReaction } from "./outbound/send.js";
 import { createFeishuCommands } from "./commands/feishu.js";
@@ -122,6 +123,8 @@ export default defineChannel<FeishuGatewayState>({
       "```",
     ].join("\n");
   },
+
+  auth: createFeishuAuth(),
 
   commands: createFeishuCommands(() => activeMonitors),
 
