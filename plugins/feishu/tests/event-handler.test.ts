@@ -1,11 +1,13 @@
 import type * as lark from "@larksuiteoapi/node-sdk";
-import type { DeliverFn, PluginLogger, PluginRuntime } from "@marswave/cola-plugin-sdk";
+import type { DeliverFn, PluginLogger } from "@marswave/cola-plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { registerMessageHandler } from "../src/gateway/event-handler.js";
 import { MessageDedup } from "../src/gateway/dedup.js";
 import type { ChatMap } from "../src/gateway/chat-map.js";
 
 type Handler = (data: FeishuMessageData) => Promise<Record<string, never>>;
+
+type Mention = { key: string; id: { open_id?: string }; name: string };
 
 type FeishuMessageData = {
   message: {
@@ -14,25 +16,16 @@ type FeishuMessageData = {
     chat_type: string;
     message_type: string;
     content: string;
-    mentions?: unknown[];
+    mentions?: Mention[];
   };
   sender: {
-    sender_id?: {
-      open_id?: string;
-      user_id?: string;
-      union_id?: string;
-    };
+    sender_id?: { open_id?: string; user_id?: string; union_id?: string };
     sender_type: string;
   };
 };
 
 function makeLogger(): PluginLogger {
-  return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  };
+  return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
 
 function makeDispatcher() {
@@ -45,7 +38,7 @@ function makeDispatcher() {
   return { dispatcher, handlers };
 }
 
-function message(openId: string): FeishuMessageData {
+function directMessage(openId: string): FeishuMessageData {
   return {
     message: {
       message_id: "m1",
@@ -54,35 +47,27 @@ function message(openId: string): FeishuMessageData {
       message_type: "text",
       content: JSON.stringify({ text: "hello" }),
     },
-    sender: {
-      sender_id: { open_id: openId },
-      sender_type: "user",
-    },
+    sender: { sender_id: { open_id: openId }, sender_type: "user" },
   };
 }
 
-function groupMessage(openId: string): FeishuMessageData {
-  const event = message(openId);
+function groupMessage(openId: string, mentions?: Mention[]): FeishuMessageData {
+  const event = directMessage(openId);
   return {
     ...event,
-    message: {
-      ...event.message,
-      chat_id: "group-chat1",
-      chat_type: "group",
-    },
+    message: { ...event.message, chat_id: "group-chat1", chat_type: "group", mentions },
   };
 }
 
-function register(opts: {
-  authorizedOpenIds?: Set<string>;
-  resolve?: (senderId: string) => Promise<string | null>;
-}) {
+function botMention(botOpenId: string): Mention {
+  return { key: "@_user_1", id: { open_id: botOpenId }, name: "Cola" };
+}
+
+function register(opts: { botOpenId?: string } = {}) {
   const { dispatcher, handlers } = makeDispatcher();
-  const bind = vi.fn(async () => {});
-  const resolve = vi.fn(opts.resolve ?? (async () => null));
   const logger = makeLogger();
   const deliver = vi.fn(async () => {}) as unknown as DeliverFn;
-  const chatMap = { set: vi.fn() } as unknown as ChatMap;
+  const chatMap = { set: vi.fn(), get: vi.fn(), hasUser: vi.fn() } as unknown as ChatMap;
   const create = vi.fn(async () => {});
   const client = { im: { message: { create } } } as unknown as lark.Client;
 
@@ -91,119 +76,86 @@ function register(opts: {
     accountId: "default",
     logger,
     deliver,
-    identity: { resolve, bind, unbind: vi.fn() } as PluginRuntime["identity"],
-    authorizedOpenIds: opts.authorizedOpenIds ?? new Set(),
     dedup: new MessageDedup(),
     chatMap,
+    botOpenId: opts.botOpenId,
   });
 
-  return { handler: handlers["im.message.receive_v1"], bind, resolve, deliver, chatMap, create };
+  return { handler: handlers["im.message.receive_v1"], deliver, chatMap, create };
 }
 
-describe("Feishu message identity binding", () => {
-  it("replies with unsupported notice for group chats without delivery or binding", async () => {
-    const { handler, bind, resolve, deliver, chatMap, create } = register({
-      authorizedOpenIds: new Set(["ou_allowed"]),
-    });
+describe("Feishu message delivery (SDK access gate)", () => {
+  it("delivers a direct message as a direct conversation without any in-plugin reply", async () => {
+    const { handler, deliver, chatMap, create } = register();
 
-    await handler(groupMessage("ou_allowed"));
+    await handler(directMessage("ou_alice"));
 
-    expect(resolve).not.toHaveBeenCalled();
-    expect(bind).not.toHaveBeenCalled();
-    expect(chatMap.set).not.toHaveBeenCalled();
-    expect(deliver).not.toHaveBeenCalled();
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        params: { receive_id_type: "chat_id" },
-        data: expect.objectContaining({
-          receive_id: "group-chat1",
-          msg_type: "post",
-          content: expect.stringContaining("暂不支持群聊"),
-        }),
-      }),
-    );
-  });
-
-  it("binds an authorized unbound sender before delivery", async () => {
-    const { handler, bind, resolve, deliver } = register({
-      authorizedOpenIds: new Set(["ou_allowed"]),
-    });
-
-    await handler(message("ou_allowed"));
-
-    expect(resolve).toHaveBeenCalledWith("ou_allowed");
-    expect(bind).toHaveBeenCalledWith("ou_allowed");
+    expect(create).not.toHaveBeenCalled();
+    expect(chatMap.set).toHaveBeenCalledWith("ou_alice", "chat1");
     expect(deliver).toHaveBeenCalledTimes(1);
     expect(deliver).toHaveBeenCalledWith(
       expect.objectContaining({
-        sessionId: ["chat", "default", "chat1", "sender", "ou_allowed"],
-        sender: { id: "ou_allowed" },
+        sessionId: ["chat", "default", "chat1", "sender", "ou_alice"],
+        sender: { id: "ou_alice" },
+        conversation: { kind: "direct", id: "ou_alice" },
+        mentionedBot: undefined,
+        deliveryContext: expect.objectContaining({
+          to: "chat:chat1",
+          accountId: "default",
+          messageId: "m1",
+        }),
         message: "hello",
       }),
     );
   });
 
-  it("does not rebind an already-bound authorized sender", async () => {
-    const { handler, bind, deliver } = register({
-      authorizedOpenIds: new Set(["ou_allowed"]),
-      resolve: async () => "user-1",
-    });
+  it("delivers a group message that @mentions the bot with mentionedBot=true", async () => {
+    const { handler, deliver } = register({ botOpenId: "ou_bot" });
 
-    await handler(message("ou_allowed"));
+    await handler(groupMessage("ou_alice", [botMention("ou_bot")]));
 
-    expect(bind).not.toHaveBeenCalled();
     expect(deliver).toHaveBeenCalledTimes(1);
-  });
-
-  it("replies with access instructions for senders outside the authorized open_id list", async () => {
-    const { handler, bind, resolve, deliver, chatMap, create } = register({
-      authorizedOpenIds: new Set(["ou_allowed"]),
-    });
-
-    await handler(message("ou_other"));
-
-    expect(resolve).toHaveBeenCalledWith("ou_other");
-    expect(bind).not.toHaveBeenCalled();
-    expect(chatMap.set).not.toHaveBeenCalled();
-    expect(deliver).not.toHaveBeenCalled();
-    expect(create).toHaveBeenCalledWith(
+    expect(deliver).toHaveBeenCalledWith(
       expect.objectContaining({
-        params: { receive_id_type: "chat_id" },
-        data: expect.objectContaining({
-          receive_id: "chat1",
-          msg_type: "post",
-          content: expect.stringContaining("ou_other"),
-        }),
+        sessionId: ["chat", "default", "group-chat1"],
+        sender: { id: "ou_alice" },
+        conversation: { kind: "group", id: "group-chat1" },
+        mentionedBot: true,
+        deliveryContext: expect.objectContaining({ to: "chat:group-chat1" }),
+        message: "hello",
       }),
     );
   });
 
-  it("replies with access instructions when no authorized list is configured", async () => {
-    const { handler, bind, deliver, create } = register({});
+  it("delivers a group message without an @bot mention with mentionedBot=false", async () => {
+    const { handler, deliver } = register({ botOpenId: "ou_bot" });
 
-    await handler(message("ou_unlisted"));
+    await handler(groupMessage("ou_alice"));
 
-    expect(bind).not.toHaveBeenCalled();
-    expect(deliver).not.toHaveBeenCalled();
-    expect(create).toHaveBeenCalledWith(
+    expect(deliver).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          content: expect.stringContaining("ou_unlisted"),
-        }),
+        conversation: { kind: "group", id: "group-chat1" },
+        mentionedBot: false,
       }),
     );
   });
 
-  it("delivers already-bound senders even when they are not in the authorized list", async () => {
-    const { handler, bind, deliver, create } = register({
-      authorizedOpenIds: new Set(["ou_allowed"]),
-      resolve: async () => "user-1",
+  it("reports mentionedBot=false in groups when the bot open_id is unknown", async () => {
+    const { handler, deliver } = register();
+
+    await handler(groupMessage("ou_alice", [botMention("ou_bot")]));
+
+    expect(deliver).toHaveBeenCalledWith(expect.objectContaining({ mentionedBot: false }));
+  });
+
+  it("skips delivery for an unknown sender", async () => {
+    const { handler, deliver } = register();
+
+    await handler({
+      message: directMessage("ou_alice").message,
+      sender: { sender_type: "user" },
     });
 
-    await handler(message("ou_other"));
-
-    expect(bind).not.toHaveBeenCalled();
-    expect(create).not.toHaveBeenCalled();
-    expect(deliver).toHaveBeenCalledTimes(1);
+    expect(deliver).not.toHaveBeenCalled();
   });
 });

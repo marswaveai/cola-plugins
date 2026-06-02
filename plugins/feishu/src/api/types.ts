@@ -6,7 +6,6 @@ export type FeishuAccountConfig = {
   appId: string;
   appSecret: string;
   domain?: FeishuDomain;
-  authorizedOpenIds?: string | string[];
   encryptKey?: string;
   verificationToken?: string;
   enabled?: boolean;
@@ -15,6 +14,11 @@ export type FeishuAccountConfig = {
 export type FeishuPluginConfig = {
   pluginDir?: string;
   accounts?: Record<string, FeishuAccountConfig>;
+};
+
+/** Pre-SDK-gate account config that may still carry a legacy authorizedOpenIds allowlist. */
+export type LegacyFeishuAccountConfig = Partial<FeishuAccountConfig> & {
+  authorizedOpenIds?: string | string[];
 };
 
 export type ResolvedAccount = {

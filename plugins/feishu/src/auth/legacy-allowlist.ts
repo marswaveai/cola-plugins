@@ -1,4 +1,5 @@
 import type { PluginLogger, PluginRuntime } from "@marswave/cola-plugin-sdk";
+import type { LegacyFeishuAccountConfig } from "../api/types.js";
 
 /**
  * Parse a legacy `authorizedOpenIds` config value (comma/space separated string
@@ -27,7 +28,7 @@ export function parseAuthorizedOpenIds(value: unknown): Set<string> {
  * Idempotent — re-binding an already-bound sender is a no-op on the host side.
  */
 export async function migrateLegacyAllowlist(
-  accounts: Iterable<{ authorizedOpenIds?: unknown }>,
+  accounts: Iterable<LegacyFeishuAccountConfig>,
   identity: PluginRuntime["identity"],
   logger: PluginLogger,
 ): Promise<void> {

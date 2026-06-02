@@ -1,21 +1,18 @@
 import type * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginLogger, DeliverFn, PluginRuntime } from "@marswave/cola-plugin-sdk";
+import type { DeliverFn, PluginLogger } from "@marswave/cola-plugin-sdk";
 import { parseMessage } from "./message-parser.js";
-import { stripBotMention } from "../util/mention.js";
+import { isBotMentioned, stripBotMention } from "../util/mention.js";
 import { MessageDedup } from "./dedup.js";
 import type { ChatMap } from "./chat-map.js";
-import { authorizeOpenId } from "../auth/authorized-open-ids.js";
-import { formatAsPost } from "../outbound/format.js";
 
 export type EventHandlerDeps = {
   client: lark.Client;
   accountId: string;
   logger: PluginLogger;
   deliver: DeliverFn;
-  identity: PluginRuntime["identity"];
-  authorizedOpenIds: Set<string>;
   dedup: MessageDedup;
   chatMap: ChatMap;
+  /** Bot's own open_id, used to detect @bot mentions in group chats. */
   botOpenId?: string;
 };
 
@@ -42,8 +39,18 @@ type ReactedMessageContext = {
   summary?: string;
 };
 
+type StripMention = {
+  key: string;
+  id: { open_id?: string; user_id?: string; union_id?: string };
+  name: string;
+};
+
 /**
  * Register the im.message.receive_v1 event handler on a dispatcher.
+ *
+ * Authorization is delegated to the host's SDK access gate: this handler only
+ * delivers, populating `conversation` (direct vs group) and `mentionedBot` so
+ * the gate can authorize per-sender (DM) or per-group (@bot-gated).
  */
 export function registerMessageHandler(
   dispatcher: lark.EventDispatcher,
@@ -60,25 +67,13 @@ export function registerMessageHandler(
         return {};
       }
 
-      if (isGroupChat(message.chat_type)) {
-        logger.info(`Skipping Feishu group chat message ${message.message_id}`);
-        await sendUnsupportedGroupChatReply(client, message.chat_id, logger);
-        return {};
-      }
-
       const senderId = sender.sender_id?.open_id;
       if (!senderId) {
         logger.warn("Message missing sender open_id, skipping");
         return {};
       }
-      if (!(await authorizeOpenId(deps.identity, deps.authorizedOpenIds, senderId, logger))) {
-        logger.warn(`Skipping Feishu message from unauthorized sender ${senderId}`);
-        await sendAccessNotConfiguredReply(client, message.chat_id, senderId, logger);
-        return {};
-      }
 
-      // Record chat mapping
-      chatMap.set(senderId, message.chat_id);
+      const isGroup = message.chat_type === "group";
 
       // Parse message content
       const parsed = await parseMessage(
@@ -115,22 +110,33 @@ export function registerMessageHandler(
         return {};
       }
 
-      // Strip @bot mention
-      const mentionsForStrip = message.mentions?.map((m: Record<string, unknown>) => ({
-        key: m.key as string,
-        id: (m.id ?? {}) as { open_id?: string; user_id?: string; union_id?: string },
-        name: (m.name ?? "") as string,
-      }));
-      let text = stripBotMention(parsed.text, mentionsForStrip, deps.botOpenId);
+      // Strip @bot mention from the text
+      const mentions: StripMention[] | undefined = message.mentions?.map(
+        (m: Record<string, unknown>) => ({
+          key: m.key as string,
+          id: (m.id ?? {}) as { open_id?: string; user_id?: string; union_id?: string },
+          name: (m.name ?? "") as string,
+        }),
+      );
+      const text = stripBotMention(parsed.text, mentions, deps.botOpenId);
 
       // Skip empty text after stripping mentions (unless attachments present)
       if (!text.trim() && parsed.attachments.length === 0) {
         return {};
       }
 
+      // Record chat mapping for outbound routing
+      chatMap.set(senderId, message.chat_id);
+
       await deliver({
-        sessionId: ["chat", accountId, message.chat_id, "sender", senderId],
+        sessionId: isGroup
+          ? ["chat", accountId, message.chat_id]
+          : ["chat", accountId, message.chat_id, "sender", senderId],
         sender: { id: senderId },
+        conversation: isGroup
+          ? { kind: "group", id: message.chat_id }
+          : { kind: "direct", id: senderId },
+        mentionedBot: isGroup ? isBotMentioned(mentions, deps.botOpenId) : undefined,
         deliveryContext: {
           to: `chat:${message.chat_id}`,
           accountId,
@@ -186,10 +192,6 @@ async function handleReaction(
     logger.warn("Reaction event missing emoji_type, skipping");
     return;
   }
-  if (!(await authorizeOpenId(deps.identity, deps.authorizedOpenIds, senderId, logger))) {
-    logger.warn(`Skipping Feishu reaction from unauthorized sender ${senderId}`);
-    return;
-  }
 
   const dedupKey =
     data.event_id ??
@@ -207,11 +209,14 @@ async function handleReaction(
   const verb = action === "created" ? "added" : "removed";
   const summary = context.summary ? `\nReacted message: ${context.summary}` : "";
 
+  // Reactions are inherently per-user actions; deliver as a direct conversation
+  // so the gate authorizes by sender. (Group reaction semantics are not modeled.)
   await deliver({
     sessionId: context.chatId
       ? ["chat", accountId, context.chatId, "sender", senderId]
       : ["reaction", accountId, messageId, "sender", senderId],
     sender: { id: senderId },
+    conversation: { kind: "direct", id: senderId },
     deliveryContext: {
       to: context.chatId ? `chat:${context.chatId}` : `user:${senderId}`,
       accountId,
@@ -219,60 +224,6 @@ async function handleReaction(
     },
     message: `[Feishu reaction ${verb}] emoji=${emojiType} message_id=${messageId}${summary}`,
   });
-}
-
-async function sendAccessNotConfiguredReply(
-  client: lark.Client,
-  chatId: string,
-  senderId: string,
-  logger: PluginLogger,
-): Promise<void> {
-  try {
-    await client.im.message.create({
-      params: { receive_id_type: "chat_id" },
-      data: {
-        receive_id: chatId,
-        content: formatAsPost(accessNotConfiguredMessage(senderId)),
-        msg_type: "post",
-      },
-    });
-  } catch (err) {
-    logger.warn(`Failed to send Feishu access notice for ${senderId}`, err);
-  }
-}
-
-function accessNotConfiguredMessage(senderId: string): string {
-  return [
-    "Cola Feishu: access not configured.",
-    "",
-    "Your Feishu open_id:",
-    "```",
-    senderId,
-    "```",
-  ].join("\n");
-}
-
-async function sendUnsupportedGroupChatReply(
-  client: lark.Client,
-  chatId: string,
-  logger: PluginLogger,
-): Promise<void> {
-  try {
-    await client.im.message.create({
-      params: { receive_id_type: "chat_id" },
-      data: {
-        receive_id: chatId,
-        content: formatAsPost("暂不支持群聊"),
-        msg_type: "post",
-      },
-    });
-  } catch (err) {
-    logger.warn(`Failed to send Feishu group chat unsupported notice for ${chatId}`, err);
-  }
-}
-
-function isGroupChat(chatType: string | undefined): boolean {
-  return chatType === "group";
 }
 
 async function resolveReactedMessageContext(

@@ -8,6 +8,7 @@ import type {
 } from "@marswave/cola-plugin-sdk";
 import type { FeishuPluginConfig } from "./api/types.js";
 import { setPluginDir, resolvePluginDir, parseAccountConfigs } from "./auth/accounts.js";
+import { migrateLegacyAllowlist } from "./auth/legacy-allowlist.js";
 import { startMonitor, type MonitorHandle } from "./gateway/monitor.js";
 import { sendText, sendMedia, sendReaction } from "./outbound/send.js";
 import { createFeishuCommands } from "./commands/feishu.js";
@@ -99,16 +100,27 @@ export default defineChannel<FeishuGatewayState>({
             { label: "Lark", value: "lark" },
           ],
         },
-        {
-          key: "authorizedOpenIds",
-          path: ["accounts", "default", "authorizedOpenIds"],
-          label: "Authorized Open IDs",
-          type: "text",
-          placeholder: "ou_xxx,ou_yyy",
-          description: "Comma-separated Feishu/Lark sender open_id values allowed to bind to Cola.",
-        },
       ],
     },
+  },
+
+  unauthorizedHint(target) {
+    if (target.kind === "group") {
+      return [
+        "这个群还没有被授信，无法使用 Cola。",
+        "请管理员执行：",
+        "```",
+        `cola channel allow-group feishu ${target.id}`,
+        "```",
+      ].join("\n");
+    }
+    return [
+      "你还没有被授信，无法使用 Cola。",
+      "请管理员执行：",
+      "```",
+      `cola channel allow feishu ${target.id}`,
+      "```",
+    ].join("\n");
   },
 
   commands: createFeishuCommands(() => activeMonitors),
@@ -128,13 +140,16 @@ export default defineChannel<FeishuGatewayState>({
         return;
       }
 
+      // One-time migration: move any legacy authorizedOpenIds into SDK identity
+      // bindings so previously-authorized users keep access under the access gate.
+      await migrateLegacyAllowlist(accounts.values(), ctx.runtime.identity, ctx.logger);
+
       for (const [accountId, acctConfig] of accounts) {
         try {
-          const handle = startMonitor({
+          const handle = await startMonitor({
             accountId,
             config: acctConfig,
             deliver: ctx.deliver,
-            identity: ctx.runtime.identity,
             logger: ctx.logger,
             abortSignal: ctx.abortSignal,
           });
