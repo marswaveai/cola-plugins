@@ -60,6 +60,14 @@ export default defineChannel<TelegramGatewayState>({
           type: "boolean",
           defaultValue: true,
         },
+        {
+          key: "groupEnabled",
+          label: "Enable group chat",
+          type: "boolean",
+          defaultValue: false,
+          description:
+            "When off, an @mention or reply to the bot in a group gets a 「暂不支持群聊」 notice and all other group messages are ignored.",
+        },
       ],
     },
   },

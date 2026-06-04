@@ -9,6 +9,7 @@ endpoint.
 - Sends Cola replies back to the originating Telegram chat or forum topic.
 - Supports Telegram typing indicators.
 - Only accepts messages from explicitly configured Telegram chat IDs.
+- Private chat only by default. Group chat is opt-in via `groupEnabled`; while off, an @mention or reply to the bot in a group gets a `暂不支持群聊` notice and other group messages are ignored.
 
 ## Requirements
 
@@ -30,13 +31,14 @@ Telegram does not allow `getUpdates` long polling while a webhook is configured.
 
 ## Configuration
 
-| Field                   | Required | Default | Description                                                          |
-| ----------------------- | -------- | ------- | -------------------------------------------------------------------- |
-| `botToken`              | Yes      |         | Telegram bot token from BotFather.                                   |
-| `allowedChatIds`        | Yes      |         | Comma-separated chat IDs accepted by the plugin.                     |
-| `pollingTimeoutSeconds` | No       | `25`    | Long-poll timeout for `getUpdates`.                                  |
-| `dropPendingUpdates`    | No       | `false` | Whether to discard pending Telegram updates when the gateway starts. |
-| `ignoreBotMessages`     | No       | `true`  | Skip messages sent by Telegram bot accounts.                         |
+| Field                   | Required | Default | Description                                                                        |
+| ----------------------- | -------- | ------- | ---------------------------------------------------------------------------------- |
+| `botToken`              | Yes      |         | Telegram bot token from BotFather.                                                 |
+| `allowedChatIds`        | Yes      |         | Comma-separated chat IDs accepted by the plugin.                                   |
+| `pollingTimeoutSeconds` | No       | `25`    | Long-poll timeout for `getUpdates`.                                                |
+| `dropPendingUpdates`    | No       | `false` | Whether to discard pending Telegram updates when the gateway starts.               |
+| `ignoreBotMessages`     | No       | `true`  | Skip messages sent by Telegram bot accounts.                                       |
+| `groupEnabled`          | No       | `false` | Enable group chat. While off, group @mentions/replies get a `暂不支持群聊` notice. |
 
 ## Finding Chat IDs
 

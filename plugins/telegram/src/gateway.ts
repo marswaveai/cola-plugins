@@ -3,7 +3,10 @@ import type { ChannelStatusResult, GatewayContext } from "@marswave/cola-plugin-
 import { TelegramApiClient } from "./api.js";
 import { isTelegramConfigured, readTelegramConfig, type TelegramConfig } from "./config.js";
 import { isFromBot, parseTelegramMessage } from "./message.js";
-import type { TelegramUpdate, TelegramUser } from "./types.js";
+import type { TelegramMessage, TelegramUpdate, TelegramUser } from "./types.js";
+
+/** Reply sent to a group @mention/reply while group chat is disabled. */
+const GROUP_DISABLED_NOTICE = "暂不支持群聊，请私聊我使用。";
 
 export type TelegramGatewayState = {
   abortController?: AbortController;
@@ -125,6 +128,15 @@ export async function handleUpdate(
   const chatId = String(message.chat.id);
   if (config.ignoreBotMessages && isFromBot(message)) return;
 
+  // Group chat is opt-in. While disabled, reply "not supported" to a direct
+  // @mention / reply-to-bot and ignore all other non-private messages.
+  if (message.chat.type !== "private" && !config.groupEnabled) {
+    if (isBotAddressed(message, ctx.state.me)) {
+      await sendGroupDisabledReply(message, ctx, config);
+    }
+    return;
+  }
+
   if (config.allowedChatIds.size > 0 && !config.allowedChatIds.has(chatId)) {
     ctx.logger.info(`Skipping Telegram message from unlisted chat ${chatId}`);
     await sendAccessNotConfiguredReply(message, ctx, config);
@@ -173,6 +185,46 @@ async function sendAccessNotConfiguredReply(
   } catch (err) {
     ctx.logger.warn(`Failed to send Telegram access notice for chat ${message.chat.id}`, err);
   }
+}
+
+async function sendGroupDisabledReply(
+  message: NonNullable<TelegramUpdate["message"]>,
+  ctx: GatewayContext<TelegramGatewayState>,
+  config: TelegramConfig,
+): Promise<void> {
+  if (!config.botToken) return;
+
+  const client = ctx.state.client ?? new TelegramApiClient({ botToken: config.botToken });
+  try {
+    await client.sendMessage({
+      chatId: String(message.chat.id),
+      messageThreadId: message.message_thread_id,
+      text: GROUP_DISABLED_NOTICE,
+    });
+  } catch (err) {
+    ctx.logger.warn(
+      `Failed to send Telegram group-disabled notice for chat ${message.chat.id}`,
+      err,
+    );
+  }
+}
+
+/** True when the message @mentions the bot or replies to one of the bot's messages. */
+function isBotAddressed(message: TelegramMessage, me: TelegramUser | undefined): boolean {
+  if (!me) return false;
+  if (message.reply_to_message?.from?.id === me.id) return true;
+
+  const username = me.username?.toLowerCase();
+  const text = message.text ?? message.caption ?? "";
+  const entities = message.entities ?? message.caption_entities ?? [];
+  for (const entity of entities) {
+    if (entity.type === "text_mention" && entity.user?.id === me.id) return true;
+    if (entity.type === "mention" && username) {
+      const mention = text.slice(entity.offset, entity.offset + entity.length).toLowerCase();
+      if (mention === `@${username}`) return true;
+    }
+  }
+  return false;
 }
 
 function accessNotConfiguredMessage(message: NonNullable<TelegramUpdate["message"]>): string {

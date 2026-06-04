@@ -5,6 +5,7 @@ export type TelegramConfig = {
   allowedChatIds: Set<string>;
   dropPendingUpdates: boolean;
   ignoreBotMessages: boolean;
+  groupEnabled: boolean;
 };
 
 export function readTelegramConfig(raw: Readonly<Record<string, unknown>>): TelegramConfig {
@@ -15,6 +16,7 @@ export function readTelegramConfig(raw: Readonly<Record<string, unknown>>): Tele
     allowedChatIds: parseChatIds(raw.allowedChatIds),
     dropPendingUpdates: readBoolean(raw.dropPendingUpdates, false),
     ignoreBotMessages: readBoolean(raw.ignoreBotMessages, true),
+    groupEnabled: readBoolean(raw.groupEnabled, false),
   };
 }
 

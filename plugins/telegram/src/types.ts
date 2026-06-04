@@ -30,6 +30,13 @@ export type TelegramChat = {
   last_name?: string;
 };
 
+export type TelegramMessageEntity = {
+  type: string;
+  offset: number;
+  length: number;
+  user?: TelegramUser;
+};
+
 export type TelegramMessage = {
   message_id: number;
   message_thread_id?: number;
@@ -39,6 +46,9 @@ export type TelegramMessage = {
   date: number;
   text?: string;
   caption?: string;
+  reply_to_message?: TelegramMessage;
+  entities?: TelegramMessageEntity[];
+  caption_entities?: TelegramMessageEntity[];
   photo?: unknown[];
   document?: {
     file_name?: string;

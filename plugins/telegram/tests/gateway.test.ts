@@ -36,6 +36,34 @@ function privateUpdate(chatId: number, fromId: number, text = "hi"): TelegramUpd
   };
 }
 
+function groupUpdate(
+  chatId: number,
+  fromId: number,
+  opts: { mentionBot?: boolean; replyToBot?: boolean } = {},
+): TelegramUpdate {
+  const text = opts.mentionBot ? "@bot hi" : "hi";
+  const message: NonNullable<TelegramUpdate["message"]> = {
+    message_id: 10,
+    chat: { id: chatId, type: "supergroup" },
+    date: 1,
+    from: { id: fromId, is_bot: false, first_name: "Ada", username: "ada" },
+    text,
+  };
+  if (opts.mentionBot) {
+    message.entities = [{ type: "mention", offset: text.indexOf("@bot"), length: 4 }];
+  }
+  if (opts.replyToBot) {
+    message.reply_to_message = {
+      message_id: 9,
+      chat: { id: chatId, type: "supergroup" },
+      date: 1,
+      from: { id: 555, is_bot: true, first_name: "Bot", username: "bot" },
+      text: "earlier",
+    };
+  }
+  return { update_id: 2, message };
+}
+
 describe("telegram gateway identity binding", () => {
   it("binds an unbound sender from an allowed chat before delivering", async () => {
     const { ctx, bind, resolve, deliver } = makeCtx();
@@ -81,5 +109,59 @@ describe("telegram gateway identity binding", () => {
         "```",
       ].join("\n"),
     });
+  });
+});
+
+describe("telegram group chat disabled (groupEnabled=false)", () => {
+  const NOTICE = "暂不支持群聊，请私聊我使用。";
+
+  it("ignores a group message that does not address the bot", async () => {
+    const { ctx, deliver, resolve, sendMessage } = makeCtx();
+
+    await handleUpdate(groupUpdate(-100123, 5693819232), ctx, config);
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(resolve).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("replies '暂不支持群聊' to a group @mention and does not deliver", async () => {
+    const { ctx, deliver, sendMessage } = makeCtx();
+
+    await handleUpdate(groupUpdate(-100123, 5693819232, { mentionBot: true }), ctx, config);
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith({
+      chatId: "-100123",
+      messageThreadId: undefined,
+      text: NOTICE,
+    });
+  });
+
+  it("replies '暂不支持群聊' to a reply directed at the bot", async () => {
+    const { ctx, deliver, sendMessage } = makeCtx();
+
+    await handleUpdate(groupUpdate(-100123, 5693819232, { replyToBot: true }), ctx, config);
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith({
+      chatId: "-100123",
+      messageThreadId: undefined,
+      text: NOTICE,
+    });
+  });
+
+  it("delivers group messages when groupEnabled is true", async () => {
+    const groupConfig = readTelegramConfig({
+      botToken: "123456:secret",
+      allowedChatIds: "-100123",
+      groupEnabled: true,
+    });
+    const { ctx, deliver, sendMessage } = makeCtx();
+
+    await handleUpdate(groupUpdate(-100123, 5693819232, { mentionBot: true }), ctx, groupConfig);
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(deliver).toHaveBeenCalledTimes(1);
   });
 });
