@@ -64,6 +64,18 @@ describe("createFeishuAuth().login (one-click app creation)", () => {
     expect(bind).toHaveBeenCalledWith("ou_owner");
   });
 
+  it("disconnect clears all accounts via config.patch and binds nobody", async () => {
+    const { ctx, patch, bind } = makeCtx({
+      accounts: { default: { appId: "cli_old", appSecret: "s" } },
+    });
+
+    await createFeishuAuth().disconnect!(ctx);
+
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch).toHaveBeenCalledWith({ accounts: {} });
+    expect(bind).not.toHaveBeenCalled();
+  });
+
   it("defaults domain to feishu and skips bind when no user_info is returned", async () => {
     mockedRegisterApp.mockImplementation(async (opts: Parameters<typeof registerApp>[0]) => {
       opts.onQRCodeReady({ url: "https://feishu/qr2", expireIn: 120 });

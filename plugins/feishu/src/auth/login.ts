@@ -48,5 +48,17 @@ export function createFeishuAuth(): ChannelAuthAdapter {
 
       ctx.onStatus?.("success", "应用创建成功，凭据已写入");
     },
+
+    async disconnect(ctx: AuthContext) {
+      ctx.onStatus?.("disconnecting", "正在断开飞书连接…");
+
+      // Clear stored credentials so the channel returns to an unconfigured state
+      // and can be re-authorized via scan login. `config.patch` is a top-level
+      // shallow merge, so replacing `accounts` with {} drops every account.
+      // Identity authorizations (cola channel allow/revoke) are left intact.
+      await ctx.runtime.config.patch({ accounts: {} });
+
+      ctx.onStatus?.("disconnected", "已断开，凭据已清空");
+    },
   };
 }
