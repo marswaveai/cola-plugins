@@ -25,8 +25,9 @@ export async function startMonitor(opts: {
   deliver: DeliverFn;
   logger: PluginLogger;
   abortSignal: AbortSignal;
+  groupEnabled: boolean;
 }): Promise<MonitorHandle> {
-  const { accountId, config, deliver, logger, abortSignal } = opts;
+  const { accountId, config, deliver, logger, abortSignal, groupEnabled } = opts;
 
   // Create client and dispatcher
   const client = createLarkClient(accountId, config);
@@ -38,7 +39,17 @@ export async function startMonitor(opts: {
   // Bot open_id is required to detect @bot mentions in group chats.
   const botOpenId = await fetchBotOpenId(client, logger);
 
-  const deps = { client, accountId, logger, deliver, dedup, chatMap, groupContext, botOpenId };
+  const deps = {
+    client,
+    accountId,
+    logger,
+    deliver,
+    dedup,
+    chatMap,
+    groupContext,
+    botOpenId,
+    groupEnabled,
+  };
 
   // Register event handlers
   registerMessageHandler(dispatcher, deps);

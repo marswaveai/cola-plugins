@@ -9,6 +9,10 @@ import {
   prependGroupContext,
   type GroupContextTracker,
 } from "./group-context.js";
+import { sendText } from "../outbound/send.js";
+
+/** Reply sent to a group @mention while group chat is disabled. */
+const GROUP_DISABLED_NOTICE = "暂不支持群聊，请私聊我使用。";
 
 export type EventHandlerDeps = {
   client: lark.Client;
@@ -21,6 +25,8 @@ export type EventHandlerDeps = {
   groupContext: GroupContextTracker;
   /** Bot's own open_id, used to detect @bot mentions in group chats. */
   botOpenId?: string;
+  /** When false, group @mentions get a "not supported" reply instead of reaching the agent. */
+  groupEnabled: boolean;
 };
 
 type ReactionAction = "created" | "deleted";
@@ -52,6 +58,15 @@ type StripMention = {
   name: string;
 };
 
+function mapMentions(raw: unknown): StripMention[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return raw.map((m: Record<string, unknown>) => ({
+    key: m.key as string,
+    id: (m.id ?? {}) as { open_id?: string; user_id?: string; union_id?: string },
+    name: (m.name ?? "") as string,
+  }));
+}
+
 /**
  * Register the im.message.receive_v1 event handler on a dispatcher.
  *
@@ -81,6 +96,26 @@ export function registerMessageHandler(
       }
 
       const isGroup = message.chat_type === "group";
+      const mentions = mapMentions(message.mentions);
+
+      // Group chat is opt-in. While disabled, reply "not supported" to a direct
+      // @mention and ignore all other group messages.
+      if (isGroup && !deps.groupEnabled) {
+        if (isBotMentioned(mentions, deps.botOpenId)) {
+          try {
+            await sendText(
+              client,
+              `chat:${message.chat_id}`,
+              GROUP_DISABLED_NOTICE,
+              chatMap,
+              logger,
+            );
+          } catch (err) {
+            logger.warn(`Failed to send group-disabled notice to chat ${message.chat_id}`, err);
+          }
+        }
+        return {};
+      }
 
       // Parse message content
       const parsed = await parseMessage(
@@ -118,13 +153,6 @@ export function registerMessageHandler(
       }
 
       // Strip @bot mention from the text
-      const mentions: StripMention[] | undefined = message.mentions?.map(
-        (m: Record<string, unknown>) => ({
-          key: m.key as string,
-          id: (m.id ?? {}) as { open_id?: string; user_id?: string; union_id?: string },
-          name: (m.name ?? "") as string,
-        }),
-      );
       const text = stripBotMention(parsed.text, mentions, deps.botOpenId);
 
       // Skip empty text after stripping mentions (unless attachments present)

@@ -14,6 +14,8 @@ export type FeishuAccountConfig = {
 export type FeishuPluginConfig = {
   pluginDir?: string;
   accounts?: Record<string, FeishuAccountConfig>;
+  /** Enable group chat. When false (default), @mentions in groups get a "not supported" reply. */
+  groupEnabled?: boolean;
 };
 
 /** Pre-SDK-gate account config that may still carry a legacy authorizedOpenIds allowlist. */

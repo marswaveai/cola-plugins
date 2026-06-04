@@ -101,6 +101,15 @@ export default defineChannel<FeishuGatewayState>({
             { label: "Lark", value: "lark" },
           ],
         },
+        {
+          key: "groupEnabled",
+          path: ["groupEnabled"],
+          label: "启用群聊",
+          description:
+            "关闭时，群里 @机器人只会收到「暂不支持群聊」提示。开启后需对每个群单独授信。",
+          type: "boolean",
+          defaultValue: false,
+        },
       ],
     },
   },
@@ -153,6 +162,8 @@ export default defineChannel<FeishuGatewayState>({
         return;
       }
 
+      const groupEnabled = config.groupEnabled ?? false;
+
       for (const [accountId, acctConfig] of accounts) {
         try {
           const handle = await startMonitor({
@@ -161,6 +172,7 @@ export default defineChannel<FeishuGatewayState>({
             deliver: ctx.deliver,
             logger: ctx.logger,
             abortSignal: ctx.abortSignal,
+            groupEnabled,
           });
           monitors.set(accountId, handle);
         } catch (err) {

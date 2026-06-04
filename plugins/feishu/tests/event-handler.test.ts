@@ -65,7 +65,9 @@ function botMention(botOpenId: string): Mention {
   return { key: "@_user_1", id: { open_id: botOpenId }, name: "Cola" };
 }
 
-function register(opts: { botOpenId?: string; list?: ReturnType<typeof vi.fn> } = {}) {
+function register(
+  opts: { botOpenId?: string; list?: ReturnType<typeof vi.fn>; groupEnabled?: boolean } = {},
+) {
   const { dispatcher, handlers } = makeDispatcher();
   const logger = makeLogger();
   const deliver = vi.fn(async () => {}) as unknown as DeliverFn;
@@ -83,9 +85,10 @@ function register(opts: { botOpenId?: string; list?: ReturnType<typeof vi.fn> } 
     chatMap,
     groupContext: new GroupContextTracker(),
     botOpenId: opts.botOpenId,
+    groupEnabled: opts.groupEnabled ?? false,
   });
 
-  return { handler: handlers["im.message.receive_v1"], deliver, chatMap, create, list };
+  return { handler: handlers["im.message.receive_v1"], deliver, chatMap, create, list, logger };
 }
 
 describe("Feishu message delivery (SDK access gate)", () => {
@@ -114,7 +117,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
   });
 
   it("delivers a group message that @mentions the bot with mentionedBot=true", async () => {
-    const { handler, deliver } = register({ botOpenId: "ou_bot" });
+    const { handler, deliver } = register({ botOpenId: "ou_bot", groupEnabled: true });
 
     await handler(groupMessage("ou_alice", [botMention("ou_bot")]));
 
@@ -132,7 +135,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
   });
 
   it("delivers a group message without an @bot mention with mentionedBot=false", async () => {
-    const { handler, deliver } = register({ botOpenId: "ou_bot" });
+    const { handler, deliver } = register({ botOpenId: "ou_bot", groupEnabled: true });
 
     await handler(groupMessage("ou_alice"));
 
@@ -145,7 +148,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
   });
 
   it("reports mentionedBot=false in groups when the bot open_id is unknown", async () => {
-    const { handler, deliver } = register();
+    const { handler, deliver } = register({ groupEnabled: true });
 
     await handler(groupMessage("ou_alice", [botMention("ou_bot")]));
 
@@ -164,7 +167,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
   });
 
   it("skips delivery when text is only the bot mention and there are no attachments", async () => {
-    const { handler, deliver } = register({ botOpenId: "ou_bot" });
+    const { handler, deliver } = register({ botOpenId: "ou_bot", groupEnabled: true });
     const event = groupMessage("ou_alice", [botMention("ou_bot")]);
     event.message.content = JSON.stringify({ text: "@_user_1" });
 
@@ -186,7 +189,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
         ],
       },
     }));
-    const { handler, deliver } = register({ botOpenId: "ou_bot", list });
+    const { handler, deliver } = register({ botOpenId: "ou_bot", list, groupEnabled: true });
     const event = groupMessage("ou_alice", [botMention("ou_bot")]);
     event.message.message_id = "trigger";
     event.message.create_time = "60000";
@@ -204,7 +207,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
 
   it("uses the prior trigger's time as the start watermark on the next @mention in the same chat", async () => {
     const list = vi.fn(async () => ({ data: { items: [] } }));
-    const { handler } = register({ botOpenId: "ou_bot", list });
+    const { handler } = register({ botOpenId: "ou_bot", list, groupEnabled: true });
 
     const first = groupMessage("ou_alice", [botMention("ou_bot")]);
     first.message.message_id = "trigger1";
@@ -242,7 +245,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
 
   it("still delivers without a context block when the fetch fails", async () => {
     const list = vi.fn().mockRejectedValue(new Error("boom"));
-    const { handler, deliver } = register({ botOpenId: "ou_bot", list });
+    const { handler, deliver } = register({ botOpenId: "ou_bot", list, groupEnabled: true });
     const event = groupMessage("ou_alice", [botMention("ou_bot")]);
     event.message.message_id = "trigger";
     event.message.create_time = "60000";
@@ -253,6 +256,54 @@ describe("Feishu message delivery (SDK access gate)", () => {
     const payload = (deliver as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(payload.message).not.toContain("[Recent group messages");
     expect(payload.message).toBe("hello");
+  });
+});
+
+describe("Feishu group chat disabled (groupEnabled=false)", () => {
+  it("replies '暂不支持群聊' to a group @mention and does not deliver", async () => {
+    const { handler, deliver, create } = register({ botOpenId: "ou_bot", groupEnabled: false });
+
+    await handler(groupMessage("ou_alice", [botMention("ou_bot")]));
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledTimes(1);
+    const arg = create.mock.calls[0][0] as {
+      params: { receive_id_type: string };
+      data: { receive_id: string; content: string; msg_type: string };
+    };
+    expect(arg.params.receive_id_type).toBe("chat_id");
+    expect(arg.data.receive_id).toBe("group-chat1");
+    expect(arg.data.content).toContain("暂不支持群聊");
+  });
+
+  it("ignores a group message without an @bot mention", async () => {
+    const { handler, deliver, create } = register({ botOpenId: "ou_bot", groupEnabled: false });
+
+    await handler(groupMessage("ou_alice"));
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("does not reply when the bot open_id is unknown", async () => {
+    const { handler, deliver, create } = register({ groupEnabled: false });
+
+    await handler(groupMessage("ou_alice", [botMention("ou_bot")]));
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("still delivers a direct message normally while group chat is disabled", async () => {
+    const { handler, deliver, create } = register({ botOpenId: "ou_bot", groupEnabled: false });
+
+    await handler(directMessage("ou_alice"));
+
+    expect(create).not.toHaveBeenCalled();
+    expect(deliver).toHaveBeenCalledTimes(1);
+    expect(deliver).toHaveBeenCalledWith(
+      expect.objectContaining({ conversation: { kind: "direct", id: "ou_alice" } }),
+    );
   });
 });
 
