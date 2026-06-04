@@ -113,7 +113,7 @@ describe("telegram gateway identity binding", () => {
 });
 
 describe("telegram group chat disabled (groupEnabled=false)", () => {
-  const NOTICE = "暂不支持群聊，请私聊我使用。";
+  const NOTICE = "暂不支持群聊";
 
   it("ignores a group message that does not address the bot", async () => {
     const { ctx, deliver, resolve, sendMessage } = makeCtx();

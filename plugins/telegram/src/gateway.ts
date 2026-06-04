@@ -6,7 +6,7 @@ import { isFromBot, parseTelegramMessage } from "./message.js";
 import type { TelegramMessage, TelegramUpdate, TelegramUser } from "./types.js";
 
 /** Reply sent to a group @mention/reply while group chat is disabled. */
-const GROUP_DISABLED_NOTICE = "暂不支持群聊，请私聊我使用。";
+const GROUP_DISABLED_NOTICE = "暂不支持群聊";
 
 export type TelegramGatewayState = {
   abortController?: AbortController;

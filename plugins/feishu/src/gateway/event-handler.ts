@@ -12,7 +12,7 @@ import {
 import { sendText } from "../outbound/send.js";
 
 /** Reply sent to a group @mention while group chat is disabled. */
-const GROUP_DISABLED_NOTICE = "暂不支持群聊，请私聊我使用。";
+const GROUP_DISABLED_NOTICE = "暂不支持群聊";
 
 export type EventHandlerDeps = {
   client: lark.Client;
