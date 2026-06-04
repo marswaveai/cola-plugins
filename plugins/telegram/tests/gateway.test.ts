@@ -151,6 +151,26 @@ describe("telegram group chat disabled (groupEnabled=false)", () => {
     });
   });
 
+  it("ignores a group @mention directed at another user", async () => {
+    const { ctx, deliver, sendMessage } = makeCtx();
+    const update: TelegramUpdate = {
+      update_id: 3,
+      message: {
+        message_id: 11,
+        chat: { id: -100123, type: "supergroup" },
+        date: 1,
+        from: { id: 5693819232, is_bot: false, first_name: "Ada", username: "ada" },
+        text: "@ada hi",
+        entities: [{ type: "mention", offset: 0, length: 4 }],
+      },
+    };
+
+    await handleUpdate(update, ctx, config);
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it("delivers group messages when groupEnabled is true", async () => {
     const groupConfig = readTelegramConfig({
       botToken: "123456:secret",
