@@ -11,6 +11,8 @@ export type RegistryEntry = {
   label: string;
   description?: string;
   version: string;
+  minColaVersion?: string;
+  /** @deprecated Use minColaVersion. */
   minSdkVersion?: string;
   aliases?: string[];
   docsPath?: string;
@@ -48,6 +50,7 @@ export function entryFromPackage(pkg: unknown, publicBase: string): RegistryEntr
 
   const label = normalizeString(channel?.label) ?? id;
   const description = normalizeString(channel?.description) ?? normalizeString(pkg.description);
+  const minColaVersion = normalizeString(plugin?.minColaVersion);
   const minSdkVersion = normalizeString(plugin?.minSdkVersion);
   const aliases = normalizeStringList(channel?.aliases);
   const docsPath = normalizeString(channel?.docsPath);
@@ -59,6 +62,7 @@ export function entryFromPackage(pkg: unknown, publicBase: string): RegistryEntr
     label,
     ...(description ? { description } : {}),
     version,
+    ...(minColaVersion ? { minColaVersion } : {}),
     ...(minSdkVersion ? { minSdkVersion } : {}),
     ...(aliases ? { aliases } : {}),
     ...(docsPath ? { docsPath } : {}),

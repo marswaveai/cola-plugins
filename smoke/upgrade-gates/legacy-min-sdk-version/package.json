@@ -1,0 +1,23 @@
+{
+  "name": "cola-smoke-legacy-min-sdk-version-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@marswave/cola-plugin-sdk": "0.0.4-dev.202606041251.c8b2bed3"
+  },
+  "cola": {
+    "plugin": {
+      "id": "smoke-legacy-min-sdk-version",
+      "entry": "./index.js",
+      "minSdkVersion": "99.0.0"
+    },
+    "channel": {
+      "label": "Smoke Legacy Requires New Cola",
+      "description": "Uses legacy minSdkVersion for upgrade-gate fallback smoke tests"
+    }
+  }
+}

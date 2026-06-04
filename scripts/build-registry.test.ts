@@ -6,7 +6,7 @@ const pkg = {
   version: "1.2.3",
   description: "pkg desc",
   cola: {
-    plugin: { id: "demo", entry: "./dist/index.js", minSdkVersion: "0.5.0" },
+    plugin: { id: "demo", entry: "./dist/index.js", minColaVersion: "0.5.0" },
     channel: {
       label: "Demo",
       description: "chan desc",
@@ -38,6 +38,26 @@ describe("entryFromPackage", () => {
     expect(entry?.docsPath).toBe(
       "https://github.com/marswaveai/cola-plugins/blob/main/plugins/demo/README.md",
     );
+  });
+
+  it("copies minColaVersion into the registry entry", () => {
+    const entry = entryFromPackage(pkg, base);
+    expect(entry?.minColaVersion).toBe("0.5.0");
+  });
+
+  it("preserves legacy minSdkVersion for older plugin packages", () => {
+    const entry = entryFromPackage(
+      {
+        ...pkg,
+        cola: {
+          ...pkg.cola,
+          plugin: { id: "demo", entry: "./dist/index.js", minSdkVersion: "0.5.0" },
+        },
+      },
+      base,
+    );
+
+    expect(entry?.minSdkVersion).toBe("0.5.0");
   });
 
   it("returns undefined when id/entry/version is missing", () => {

@@ -1,0 +1,23 @@
+{
+  "name": "cola-smoke-min-cola-version-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@marswave/cola-plugin-sdk": "0.0.4-dev.202606041251.c8b2bed3"
+  },
+  "cola": {
+    "plugin": {
+      "id": "smoke-min-cola-version",
+      "entry": "./index.js",
+      "minColaVersion": "99.0.0"
+    },
+    "channel": {
+      "label": "Smoke Requires New Cola",
+      "description": "Requires a future Cola app version for upgrade-gate smoke tests"
+    }
+  }
+}

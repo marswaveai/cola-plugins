@@ -1,0 +1,23 @@
+{
+  "name": "cola-smoke-compatible-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@marswave/cola-plugin-sdk": "0.0.4-dev.202606041251.c8b2bed3"
+  },
+  "cola": {
+    "plugin": {
+      "id": "smoke-compatible",
+      "entry": "./index.js",
+      "minColaVersion": "0.0.1"
+    },
+    "channel": {
+      "label": "Smoke Compatible",
+      "description": "Loads on current Cola versions for plugin compatibility smoke tests"
+    }
+  }
+}

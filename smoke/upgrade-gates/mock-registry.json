@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "smoke-store-min-cola-version",
+      "label": "Smoke Store Requires New Cola",
+      "description": "Requires a future Cola app version for plugin store upgrade-gate smoke tests",
+      "version": "0.0.0",
+      "minColaVersion": "99.0.0",
+      "downloadUrl": "https://example.invalid/plugins/smoke-store-min-cola-version.tar.gz"
+    },
+    {
+      "id": "smoke-store-legacy-min-sdk-version",
+      "label": "Smoke Store Legacy Requires New Cola",
+      "description": "Uses legacy minSdkVersion for plugin store upgrade-gate fallback smoke tests",
+      "version": "0.0.0",
+      "minSdkVersion": "99.0.0",
+      "downloadUrl": "https://example.invalid/plugins/smoke-store-legacy-min-sdk-version.tar.gz"
+    }
+  ]
+}
