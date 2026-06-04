@@ -42,32 +42,10 @@ export default defineChannel<TelegramGatewayState>({
           placeholder: "-1001234567890,123456789",
           description: "Comma-separated Telegram chat IDs accepted by the plugin.",
         },
-        {
-          key: "pollingTimeoutSeconds",
-          label: "Polling timeout",
-          type: "number",
-          defaultValue: 25,
-        },
-        {
-          key: "dropPendingUpdates",
-          label: "Drop pending updates on start",
-          type: "boolean",
-          defaultValue: false,
-        },
-        {
-          key: "ignoreBotMessages",
-          label: "Ignore bot messages",
-          type: "boolean",
-          defaultValue: true,
-        },
-        {
-          key: "groupEnabled",
-          label: "Enable group chat",
-          type: "boolean",
-          defaultValue: false,
-          description:
-            "When off, an @mention or reply to the bot in a group gets a 「暂不支持群聊」 notice and all other group messages are ignored.",
-        },
+        // Only Bot token and Allowed chat IDs are exposed in the config UI. The
+        // remaining options (pollingTimeoutSeconds, dropPendingUpdates,
+        // ignoreBotMessages, groupEnabled) keep their defaults from
+        // readTelegramConfig and can be set via channels.json if needed.
       ],
     },
   },
