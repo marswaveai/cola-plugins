@@ -212,8 +212,6 @@ export default defineChannel<FeishuGatewayState>({
   },
 
   outbound: {
-    // @ts-expect-error mediaCapabilities ships in the next cola-plugin-sdk
-    // release (marswaveai/cola#2348); remove this suppression on SDK bump.
     mediaCapabilities: {
       // Feishu im API caps: files <= 30MB (im/v1/files); images <= 10MB
       // (im/v1/images) are enforced server-side and surface as a failure notice.

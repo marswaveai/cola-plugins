@@ -7,7 +7,7 @@
     ".": "./index.js"
   },
   "dependencies": {
-    "@marswave/cola-plugin-sdk": "0.0.4-dev.202606041251.c8b2bed3"
+    "@marswave/cola-plugin-sdk": "0.0.3"
   },
   "cola": {
     "plugin": {
