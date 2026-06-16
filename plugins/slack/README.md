@@ -27,8 +27,45 @@ WebSocket 长连接接收事件。
 选择 workspace，确认 manifest 内容，然后创建 App。这个链接会预置 bot、OAuth scopes、
 Socket Mode 和事件订阅。
 
-如果链接因 URL 过长不可用，也可以在 Slack 创建 App 时选择 `From an app manifest`，复制本目录的
-[`app-manifest.yaml`](./app-manifest.yaml) 内容粘贴进去。
+如果链接因 URL 过长不可用，也可以在 Slack 创建 App 时选择 `From an app manifest`，复制下面
+这段内容粘贴进去：
+
+```yaml
+_metadata:
+  major_version: 1
+  minor_version: 1
+display_information:
+  name: Cola
+  description: Cola Slack channel plugin
+features:
+  bot_user:
+    display_name: Cola
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - channels:history
+      - chat:write
+      - files:read
+      - files:write
+      - groups:history
+      - im:history
+      - mpim:history
+      - reactions:write
+      - users:read
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
+```
 
 Manifest 不能替你取回 token。创建 App 后仍需：
 
