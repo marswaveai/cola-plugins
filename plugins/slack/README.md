@@ -21,49 +21,73 @@ WebSocket 长连接接收事件。
 
 ## 配置流程
 
-### 1. 创建 Slack App
+### 推荐方式：用 App Manifest 快捷创建
+
+打开 [Create Cola Slack App][create-cola-slack-app]，
+选择 workspace，确认 manifest 内容，然后创建 App。这个链接会预置 bot、OAuth scopes、
+Socket Mode 和事件订阅。
+
+如果链接因 URL 过长不可用，也可以在 Slack 创建 App 时选择 `From an app manifest`，复制本目录的
+[`app-manifest.yaml`](./app-manifest.yaml) 内容粘贴进去。
+
+Manifest 不能替你取回 token。创建 App 后仍需：
+
+1. 进入 `Settings` → `Basic Information` → `App-Level Tokens`，创建一个带
+   `connections:write` scope 的 token，复制 `xapp-...`，作为 `appToken`。
+2. 进入 `Settings` → `Install App`，安装到 workspace，复制 `Bot User OAuth Token`
+   `xoxb-...`，作为 `botToken`。
+3. 打开 Cola Slack 插件设置，填入 `botToken`、`appToken`、`allowedIds`。
+
+### 手动方式
+
+#### 1. 创建 Slack App
 
 1. 打开 [Slack API: Your Apps](https://api.slack.com/apps)，点击 `Create New App`。
 2. 选择 `From scratch`，填写名称（例如 `Cola`）并选择目标 workspace。
 
-### 2. 开启 Socket Mode
+#### 2. 开启 Socket Mode
 
 1. 进入 `Settings` → `Socket Mode`，打开开关。
 2. 系统会提示创建一个 **App-level token**，scope 选择 `connections:write`。
 3. 复制生成的 `xapp-...` token，这就是配置里的 `appToken`。
 
-### 3. 配置 Bot 权限（OAuth Scopes）
+#### 3. 配置 Bot 权限（OAuth Scopes）
 
 进入 `Features` → `OAuth & Permissions`，在 `Bot Token Scopes` 添加：
 
-| Scope             | 用途                                          |
-| ----------------- | --------------------------------------------- |
-| `chat:write`      | 以机器人身份发送和编辑消息。                  |
-| `files:read`      | 下载用户上传的图片、文件。                    |
-| `files:write`     | 向会话上传图片、文件。                        |
-| `reactions:write` | 添加/移除表情回应（也用于「正在输入」👀）。   |
-| `reactions:read`  | 读取表情回应上下文。                          |
-| `users:read`      | 解析发送者的昵称、头像。                      |
-| `assistant:write` | 可选。在 thread 下显示原生「is typing…」状态。|
+| Scope               | 用途                                           |
+| ------------------- | ---------------------------------------------- |
+| `app_mentions:read` | 接收频道里 @机器人 的消息。                    |
+| `channels:history`  | 接收公开频道消息事件。                         |
+| `groups:history`    | 接收私有频道消息事件。                         |
+| `im:history`        | 接收私聊消息事件。                             |
+| `mpim:history`      | 接收多人私聊消息事件。                         |
+| `chat:write`        | 以机器人身份发送和编辑消息。                   |
+| `files:read`        | 下载用户上传的图片、文件。                     |
+| `files:write`       | 向会话上传图片、文件。                         |
+| `reactions:write`   | 添加/移除表情回应（也用于「正在输入」👀）。    |
+| `users:read`        | 解析发送者的昵称、头像。                       |
+| `assistant:write`   | 可选。在 thread 下显示原生「is typing…」状态。 |
 
-### 4. 订阅事件（Event Subscriptions）
+#### 4. 订阅事件（Event Subscriptions）
 
 进入 `Features` → `Event Subscriptions`，打开开关（Socket Mode 下无需填 Request URL），
 在 `Subscribe to bot events` 添加：
 
-| 事件               | 用途                       |
-| ------------------ | -------------------------- |
-| `message.im`       | 接收私聊消息。             |
-| `message.channels` | 接收公开频道里的消息。     |
-| `message.groups`   | 接收私有频道里的消息。     |
-| `app_mention`      | 接收 @机器人 的提及。      |
+| 事件               | 用途                   |
+| ------------------ | ---------------------- |
+| `message.im`       | 接收私聊消息。         |
+| `message.mpim`     | 接收多人私聊消息。     |
+| `message.channels` | 接收公开频道里的消息。 |
+| `message.groups`   | 接收私有频道里的消息。 |
+| `app_mention`      | 接收 @机器人 的提及。  |
 
-### 5. 安装应用
+#### 5. 安装应用
 
 进入 `Settings` → `Install App`，把应用安装到 workspace，复制 `Bot User OAuth Token`
 （`xoxb-...`），这就是配置里的 `botToken`。
 
-### 6. 配置 Cola 插件
+#### 6. 配置 Cola 插件
 
 1. 在 Cola 插件商店安装 Slack 插件。
 2. 打开 Slack 插件设置，填入：
@@ -72,7 +96,7 @@ WebSocket 长连接接收事件。
    - `allowedIds`：逗号分隔的白名单（见下文）。
 3. 保存设置，并按 Cola 提示重启或重载 gateway。
 
-### 7. 把机器人加入会话
+#### 7. 把机器人加入会话
 
 - **私聊**：在 Slack 里搜索机器人名称直接发起会话。
 - **频道**：在目标频道里 `/invite @你的机器人`。频道里必须 @机器人 才会触发 Cola 回复。
@@ -112,13 +136,13 @@ WebSocket 长连接接收事件。
 
 ## 配置字段
 
-| 字段                | 必需 | 默认值  | 说明                                                       |
-| ------------------- | ---- | ------- | ---------------------------------------------------------- |
-| `botToken`          | 是   |         | Bot User OAuth Token，`xoxb-` 开头。请作为 secret 保存。   |
-| `appToken`          | 是   |         | App-level token，`xapp-` 开头，需 `connections:write`。    |
-| `allowedIds`        | 是   |         | 逗号分隔的用户 ID（私聊）和频道 ID（频道）白名单。         |
-| `ignoreBotMessages` | 否   | `true`  | 是否忽略其他机器人/自己发的消息。                          |
-| `unfurlLinks`       | 否   | `false` | 发送消息时是否展开链接和媒体预览。                         |
+| 字段                | 必需 | 默认值  | 说明                                                     |
+| ------------------- | ---- | ------- | -------------------------------------------------------- |
+| `botToken`          | 是   |         | Bot User OAuth Token，`xoxb-` 开头。请作为 secret 保存。 |
+| `appToken`          | 是   |         | App-level token，`xapp-` 开头，需 `connections:write`。  |
+| `allowedIds`        | 是   |         | 逗号分隔的用户 ID（私聊）和频道 ID（频道）白名单。       |
+| `ignoreBotMessages` | 否   | `true`  | 是否忽略其他机器人/自己发的消息。                        |
+| `unfurlLinks`       | 否   | `false` | 发送消息时是否展开链接和媒体预览。                       |
 
 配置 UI 只暴露 `botToken`、`appToken`、`allowedIds`。`ignoreBotMessages` 与 `unfurlLinks`
 保留默认值，需要时可在 `channels.json` 里设置。
@@ -144,3 +168,5 @@ WebSocket 长连接接收事件。
 
 `assistant.threads.setStatus` 需要 `assistant:write` 且应用启用了 Assistant 能力；缺失时
 插件只会用 👀 reaction 兜底，不影响回复。
+
+[create-cola-slack-app]: https://api.slack.com/apps?new_app=1&manifest_yaml=_metadata%3A%0A%20%20major_version%3A%201%0A%20%20minor_version%3A%201%0Adisplay_information%3A%0A%20%20name%3A%20Cola%0A%20%20description%3A%20Cola%20Slack%20channel%20plugin%0Afeatures%3A%0A%20%20bot_user%3A%0A%20%20%20%20display_name%3A%20Cola%0A%20%20%20%20always_online%3A%20true%0Aoauth_config%3A%0A%20%20scopes%3A%0A%20%20%20%20bot%3A%0A%20%20%20%20%20%20-%20app_mentions%3Aread%0A%20%20%20%20%20%20-%20channels%3Ahistory%0A%20%20%20%20%20%20-%20chat%3Awrite%0A%20%20%20%20%20%20-%20files%3Aread%0A%20%20%20%20%20%20-%20files%3Awrite%0A%20%20%20%20%20%20-%20groups%3Ahistory%0A%20%20%20%20%20%20-%20im%3Ahistory%0A%20%20%20%20%20%20-%20mpim%3Ahistory%0A%20%20%20%20%20%20-%20reactions%3Awrite%0A%20%20%20%20%20%20-%20users%3Aread%0Asettings%3A%0A%20%20event_subscriptions%3A%0A%20%20%20%20bot_events%3A%0A%20%20%20%20%20%20-%20app_mention%0A%20%20%20%20%20%20-%20message.channels%0A%20%20%20%20%20%20-%20message.groups%0A%20%20%20%20%20%20-%20message.im%0A%20%20%20%20%20%20-%20message.mpim%0A%20%20org_deploy_enabled%3A%20false%0A%20%20socket_mode_enabled%3A%20true%0A%20%20token_rotation_enabled%3A%20false%0A
