@@ -1,0 +1,39 @@
+{
+  "name": "cola-plugin-slack",
+  "version": "0.1.0",
+  "description": "Slack channel plugin for Cola",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marswave/cola-plugin-sdk": "0.0.3",
+    "@slack/socket-mode": "^2.0.4",
+    "@slack/web-api": "^7.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "cola": {
+    "plugin": {
+      "id": "slack",
+      "entry": "./dist/index.js"
+    },
+    "channel": {
+      "label": "Slack",
+      "description": "Slack messaging via Socket Mode",
+      "iconUrl": "https://a.slack-edge.com/80588/marketing/img/meta/slack_hash_256.png",
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/slack/README.md"
+    }
+  }
+}
