@@ -1,3 +1,4 @@
+import { pluginMessage as m } from "@marswave/cola-plugin-sdk";
 import { SocketModeClient } from "@slack/socket-mode";
 import { WebClient } from "@slack/web-api";
 import type { ChannelSender, ChannelStatusResult, GatewayContext } from "@marswave/cola-plugin-sdk";
@@ -135,26 +136,27 @@ export function getGatewayStatus(ctx: GatewayContext<SlackGatewayState>): Channe
     return {
       connected: false,
       configured: false,
-      message: "Bot token, app token, and allowed IDs are required",
+      message: m("config.requiredSlack", "Bot token, app token, and allowed IDs are required."),
     };
   }
   if (!ctx.state.connected) {
     return {
       connected: false,
       configured: true,
-      message: ctx.state.lastError ? `Disconnected: ${ctx.state.lastError}` : "Disconnected",
+      message: m("status.disconnected", "Disconnected"),
+      details: ctx.state.lastError,
     };
   }
 
   const bot = ctx.state.botName ? `@${ctx.state.botName}` : ctx.state.botUserId;
-  const allowed =
-    ctx.state.allowedIds && ctx.state.allowedIds.length > 0
-      ? `; allowed ids=${ctx.state.allowedIds.length}`
-      : "";
   return {
     connected: true,
     configured: true,
-    message: `Socket Mode${bot ? ` as ${bot}` : ""}${allowed}`,
+    message: m("status.gateway", "{{mode}} \u00b7 {{bot}} \u00b7 Allowed: {{count}}", {
+      mode: "Socket Mode",
+      bot: bot ?? "—",
+      count: ctx.state.allowedIds?.length ?? 0,
+    }),
   };
 }
 
@@ -257,7 +259,7 @@ async function sendAccessNotConfiguredReply(
   try {
     await ctx.state.web.chat.postMessage({
       channel: event.channel,
-      text: accessNotConfiguredMessage(event),
+      text: await ctx.runtime.i18n!.text(accessNotConfiguredMessage(event)),
       ...(event.thread_ts ? { thread_ts: event.thread_ts } : {}),
     });
   } catch (err) {
@@ -265,13 +267,12 @@ async function sendAccessNotConfiguredReply(
   }
 }
 
-function accessNotConfiguredMessage(event: SlackMessageEvent): string {
-  const lines = ["Cola Slack: access not configured.", ""];
-  if (event.user) {
-    lines.push("Your Slack user ID:", "```", event.user, "```", "");
-  }
-  lines.push("This conversation's channel ID:", "```", event.channel, "```");
-  return lines.join("\n");
+function accessNotConfiguredMessage(event: SlackMessageEvent) {
+  return m(
+    "slack.access",
+    "Slack access is not configured.\nUser ID: {{user}}\nChat ID: {{chat}}",
+    { user: event.user ?? "—", chat: event.channel },
+  );
 }
 
 function resetState(state: SlackGatewayState): void {

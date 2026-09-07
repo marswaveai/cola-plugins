@@ -1,7 +1,7 @@
-import type { PluginCommandDefinition } from "@marswave/cola-plugin-sdk";
+import { pluginMessage as m, joinPluginText as join } from "@marswave/cola-plugin-sdk";
+import type { PluginCommandDefinition, PluginText } from "@marswave/cola-plugin-sdk";
 import { readTelegramConfig, redactToken } from "./config.js";
 import type { TelegramGatewayState } from "./gateway.js";
-
 export function createTelegramCommands(
   getState: () => TelegramGatewayState,
 ): PluginCommandDefinition[] {
@@ -9,47 +9,74 @@ export function createTelegramCommands(
     {
       name: "telegram",
       aliases: ["tg"],
-      description: "Telegram plugin status and configuration summary",
-      args: [{ name: "subcommand", description: '"status" or "config"', required: false }],
+      description: m("command.description", "{{name}} status and configuration", {
+        name: m("label", "Telegram"),
+      }),
+      args: [
+        {
+          name: "subcommand",
+          description: m("command.args", "Subcommand: {{commands}}", {
+            commands: "status | config",
+          }),
+          required: false,
+        },
+      ],
       async execute(ctx) {
         const subcommand = ctx.args.trim() || "status";
         const state = getState();
-
         if (subcommand === "status") {
-          const bot = state.me?.username ? `@${state.me.username}` : (state.me?.first_name ?? "-");
-          const status = state.connected ? "connected" : "disconnected";
-          const lastUpdate = state.lastUpdateAt
-            ? new Date(state.lastUpdateAt).toISOString()
-            : "never";
-          return {
-            reply: [
-              "**Telegram Status**",
-              "",
-              `- status: ${status}`,
-              `- bot: ${bot}`,
-              `- last update: ${lastUpdate}`,
-              state.lastError ? `- last error: ${state.lastError}` : undefined,
-            ]
-              .filter((line): line is string => Boolean(line))
-              .join("\n"),
-          };
-        }
+          const bot = state.me?.username ? `@${state.me.username}` : (state.me?.first_name ?? "—");
+          const status = state.connected
+            ? m("status.connected", "Connected")
+            : m("status.disconnected", "Disconnected");
+          const time = state.lastUpdateAt;
+          const lines: PluginText[] = [
+            m("command.statusTitle", "**{{name}} Status**", { name: m("label", "Telegram") }),
+            "",
+            m("command.statusLine", "- Status: {{status}}", { status }),
+            m("command.botLine", "- Bot: {{bot}}", { bot }),
+            m("command.eventLine", "- Last activity: {{time}}", {
+              time: time ? new Date(time).toISOString() : m("state.never", "Never"),
+            }),
+          ];
 
+          if (state.lastError)
+            lines.push(
+              m("command.errorLine", "- Error details: {{error}}", { error: state.lastError }),
+            );
+          return { reply: join(lines) };
+        }
         if (subcommand === "config") {
           const config = readTelegramConfig(ctx.config);
           return {
-            reply: [
-              "**Telegram Config**",
+            reply: join([
+              m("command.configTitle", "**{{name}} Configuration**", {
+                name: m("label", "Telegram"),
+              }),
               "",
-              `- bot token: ${redactToken(config.botToken)}`,
-              `- polling timeout: ${config.pollingTimeoutSeconds}s`,
-              `- allowed chats: ${config.allowedChatIds.size || "(missing)"}`,
-              `- drop pending updates: ${config.dropPendingUpdates}`,
-            ].join("\n"),
+              m("command.tokenLine", "- Bot token: {{token}}", {
+                token: config.botToken
+                  ? redactToken(config.botToken)
+                  : m("state.missing", "Missing"),
+              }),
+              m("command.allowedLine", "- Allowed IDs: {{count}}", {
+                count: config.allowedChatIds.size || m("state.missing", "Missing"),
+              }),
+              m("command.timeoutLine", "- Polling timeout: {{seconds}} s", {
+                seconds: config.pollingTimeoutSeconds,
+              }),
+              m("command.dropLine", "- Drop pending updates: {{value}}", {
+                value: config.dropPendingUpdates ? m("state.yes", "Yes") : m("state.no", "No"),
+              }),
+            ]),
           };
         }
-
-        return { reply: `Unknown subcommand: ${subcommand}. Use "status" or "config".` };
+        return {
+          reply: m("command.unknown", "Unknown subcommand: {{subcommand}}. Use {{commands}}.", {
+            subcommand,
+            commands: "status | config",
+          }),
+        };
       },
     },
   ];

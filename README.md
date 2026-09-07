@@ -177,3 +177,97 @@ secrets, QR login results, account files, and message attachments as sensitive.
 ## License
 
 Licensed under the Apache License, Version 2.0. See `LICENSE`.
+
+## Plugin localization
+
+Plugin i18n is available in SDK 0.1.0. Register locale files in `package.json`:
+
+```json
+{
+  "cola": {
+    "plugin": { "id": "example", "entry": "./dist/index.js" },
+    "channel": {
+      "label": "Example",
+      "description": "Example messaging channel",
+      "i18n": {
+        "en": "./locales/en.json",
+        "zh-CN": "./locales/zh-CN.json"
+      }
+    }
+  }
+}
+```
+
+Each file is a flat JSON object mapping message keys to strings. The reserved
+`label` and `description` keys supply the channel name and introduction, including
+its store card before installation. Other keys belong to the plugin. Files must
+be JSON files inside the package, referenced by relative paths without `..`.
+
+```json
+{
+  "label": "示例",
+  "description": "通过示例渠道与 Cola 对话",
+  "config.token": "机器人令牌",
+  "auth.timeout": "登录在 {{seconds}} 秒后超时，请重试。"
+}
+```
+
+Keep the existing string `meta.label` and `meta.description` as defaults. Use
+`pluginMessage(key, fallback, params?)` for configuration field labels,
+descriptions, placeholders and option labels; gateway status messages; auth
+status messages; command descriptions, argument descriptions and replies; and
+`unauthorizedHint`. Plain strings continue to work. Keep IDs, command names,
+configuration keys and option values stable.
+
+```ts
+import { pluginMessage, PluginLocalizedError } from "@marswave/cola-plugin-sdk";
+
+const field = {
+  key: "botToken",
+  type: "password" as const,
+  label: pluginMessage("config.token", "Bot token"),
+};
+
+throw new PluginLocalizedError(
+  pluginMessage("auth.timeout", "Login timed out after {{seconds}} seconds. Please retry.", {
+    seconds: 30,
+  }),
+  { cause: originalError },
+);
+```
+
+Messages serialize as `{ key, fallback, params? }`. Parameters accept strings,
+numbers, booleans and nested messages. Use `joinPluginText(parts, separator?)`
+to compose dynamic command replies without translating them early. Plugin keys
+are isolated; they cannot overwrite Cola or another plugin's translations.
+
+The desktop resolves text in its current UI language and updates visible text
+when the language changes. The server translates command replies and authorization
+hints at delivery using Cola's language setting. For a plugin that sends text
+directly through its platform client, use `await ctx.runtime.i18n!.text(message)`
+at the send site. A host supporting i18n provides this optional runtime capability.
+
+Each field falls back from the exact UI locale to `en`, then to its original
+fallback. Empty translations count as missing. Simplified and traditional Chinese
+do not fall back to one another. Partial catalogs are supported. Cola currently
+has `en`, `es`, `ja`, `ko`, `zh-CN` and `zh-TW` UI languages. Locale keys are
+case-insensitive; use canonical tags in package metadata.
+
+The UI displays a localized error summary and expandable original details.
+`ChannelStatusResult.details` can carry raw status diagnostics separately from `message`.
+Unexpected errors get a generic localized summary; logs keep original errors.
+Malformed or missing locale files produce runtime diagnostics and use fallback
+text rather than preventing the plugin from loading. Publish validation rejects
+missing files, invalid JSON, non-string values, escaping paths and mismatched
+`{{parameter}}` names across translations. A catalog is limited to 1 MiB.
+
+`resolvePluginText`, `validatePluginCatalog` and `validatePluginTranslations` are
+pure helpers. Node tooling can import `loadPluginTranslations` from
+`@marswave/cola-plugin-sdk/i18n-files`; pass `{ strict: true }` for publish
+validation, or `{ onWarning }` to retain valid locales on runtime failures.
+
+Publish SDK 0.1.0 before releasing plugins that depend on it, and set
+`cola.plugin.minColaVersion` to the first released Cola version supporting i18n.
+In `cola-plugins`, `pnpm build:registry` validates all declared catalogs and embeds
+only `label`/`description` translations in the store index. Release packaging
+copies every registered locale file; the installed host reads the full catalogs.

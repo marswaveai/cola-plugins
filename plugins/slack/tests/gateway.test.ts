@@ -1,3 +1,5 @@
+import { resolvePluginText } from "@marswave/cola-plugin-sdk";
+import zhCN from "../locales/zh-CN.json";
 import { describe, expect, it, vi } from "vitest";
 import type { GatewayContext } from "@marswave/cola-plugin-sdk";
 import { getGatewayStatus, startGateway, type SlackGatewayState } from "../src/gateway.js";
@@ -32,10 +34,12 @@ describe("slack gateway startup", () => {
     await expect(startGateway(ctx)).rejects.toThrow("invalid_auth");
 
     expect(ctx.state.lastError).toBe("invalid_auth");
+    expect(resolvePluginText(getGatewayStatus(ctx).message, { "zh-CN": zhCN }, "zh-CN")).toBe(
+      "未连接",
+    );
     expect(getGatewayStatus(ctx)).toMatchObject({
       connected: false,
       configured: true,
-      message: "Disconnected: invalid_auth",
     });
   });
 });

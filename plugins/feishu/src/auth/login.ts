@@ -1,3 +1,4 @@
+import { pluginMessage as m, PluginLocalizedError } from "@marswave/cola-plugin-sdk";
 import { registerApp } from "@larksuiteoapi/node-sdk";
 import type { AuthContext, ChannelAuthAdapter } from "@marswave/cola-plugin-sdk";
 
@@ -11,16 +12,32 @@ import type { AuthContext, ChannelAuthAdapter } from "@marswave/cola-plugin-sdk"
 export function createFeishuAuth(): ChannelAuthAdapter {
   return {
     async login(ctx: AuthContext) {
-      ctx.onStatus?.("starting", "正在发起飞书一键创建应用…");
+      ctx.onStatus?.(
+        "starting",
+        m("auth.starting", "Creating a {{name}} app\u2026", { name: m("label", "Feishu") }),
+      );
 
       const result = await registerApp({
         onQRCodeReady(info) {
           ctx.onQrCode?.(info.url, info.url);
-          ctx.onStatus?.("qr_ready", `请使用飞书扫码（${info.expireIn}s 内有效）`);
+          ctx.onStatus?.(
+            "qr_ready",
+            m("auth.scanExpiry", "Scan with {{name}} within {{seconds}} seconds.", {
+              name: m("label", "Feishu"),
+              seconds: info.expireIn,
+            }),
+          );
         },
         onStatusChange(info) {
           ctx.onStatus?.(info.status);
         },
+      }).catch((cause: unknown) => {
+        throw new PluginLocalizedError(
+          m("error.login", "Could not sign in to {{name}}. Please try again.", {
+            name: m("label", "Feishu"),
+          }),
+          { cause },
+        );
       });
 
       // config.patch is a top-level shallow merge, so merge `accounts` ourselves
@@ -46,11 +63,14 @@ export function createFeishuAuth(): ChannelAuthAdapter {
         await ctx.runtime.identity.bind(result.user_info.open_id);
       }
 
-      ctx.onStatus?.("success", "应用创建成功，凭据已写入");
+      ctx.onStatus?.("success", m("auth.created", "App created and credentials saved."));
     },
 
     async disconnect(ctx: AuthContext) {
-      ctx.onStatus?.("disconnecting", "正在断开飞书连接…");
+      ctx.onStatus?.(
+        "disconnecting",
+        m("auth.disconnecting", "Disconnecting {{name}}\u2026", { name: m("label", "Feishu") }),
+      );
 
       // Clear stored credentials so the channel returns to an unconfigured state
       // and can be re-authorized via scan login. `config.patch` is a top-level
@@ -58,7 +78,10 @@ export function createFeishuAuth(): ChannelAuthAdapter {
       // Identity authorizations (cola channel allow/revoke) are left intact.
       await ctx.runtime.config.patch({ accounts: {} });
 
-      ctx.onStatus?.("disconnected", "已断开，凭据已清空");
+      ctx.onStatus?.(
+        "disconnected",
+        m("auth.disconnected", "Disconnected from {{name}}.", { name: m("label", "Feishu") }),
+      );
     },
   };
 }

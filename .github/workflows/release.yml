@@ -26,6 +26,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Validate plugin translations before publication
+        run: pnpm build:registry
+
       - name: Validate OSS secrets
         env:
           OSS_ENDPOINT: ${{ secrets.ALIYUN_COLAOS_OSS_ENDPOINT }}
@@ -118,6 +121,7 @@ jobs:
               cp "plugins/$plugin/README.md" "$staging/"
             fi
             cp -r "plugins/$plugin/dist" "$staging/dist"
+            pnpm exec tsx scripts/stage-plugin-locales.ts "plugins/$plugin" "$staging"
             (cd "$staging" && npm install --omit=dev --ignore-scripts)
 
             tar -czf "$tarball" -C "$staging" .

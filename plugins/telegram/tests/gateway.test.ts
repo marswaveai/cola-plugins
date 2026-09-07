@@ -1,3 +1,6 @@
+import { resolvePluginText } from "@marswave/cola-plugin-sdk";
+import en from "../locales/en.json";
+import zhCN from "../locales/zh-CN.json";
 import { describe, expect, it, vi } from "vitest";
 import type { GatewayContext } from "@marswave/cola-plugin-sdk";
 import { readTelegramConfig } from "../src/config.js";
@@ -16,7 +19,13 @@ function makeCtx(resolveImpl: (id: string) => Promise<string | null> = async () 
       me: { id: 555, is_bot: true, first_name: "Bot", username: "bot" },
       client: { sendMessage },
     },
-    runtime: { identity: { resolve, bind, unbind: vi.fn() } },
+    runtime: {
+      i18n: {
+        text: async (text: Parameters<typeof resolvePluginText>[0]) =>
+          resolvePluginText(text, { en, "zh-CN": zhCN }, "zh-CN"),
+      },
+      identity: { resolve, bind, unbind: vi.fn() },
+    },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     deliver,
   } as unknown as GatewayContext<TelegramGatewayState>;
@@ -95,25 +104,13 @@ describe("telegram gateway identity binding", () => {
     expect(sendMessage).toHaveBeenCalledWith({
       chatId: "999",
       messageThreadId: undefined,
-      text: [
-        "Cola Telegram: access not configured.",
-        "",
-        "Your Telegram user id:",
-        "```",
-        "999",
-        "```",
-        "",
-        "Your Telegram chat id:",
-        "```",
-        "999",
-        "```",
-      ].join("\n"),
+      text: "尚未配置 Telegram 访问权限。\n用户 ID：999\n聊天 ID：999",
     });
   });
 });
 
 describe("telegram group chat disabled (groupEnabled=false)", () => {
-  const NOTICE = "暂不支持群聊";
+  const NOTICE = "尚未启用群聊，请私信机器人。";
 
   it("ignores a group message that does not address the bot", async () => {
     const { ctx, deliver, resolve, sendMessage } = makeCtx();
@@ -125,7 +122,7 @@ describe("telegram group chat disabled (groupEnabled=false)", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it("replies '暂不支持群聊' to a group @mention and does not deliver", async () => {
+  it("replies in the configured language to a group @mention and does not deliver", async () => {
     const { ctx, deliver, sendMessage } = makeCtx();
 
     await handleUpdate(groupUpdate(-100123, 5693819232, { mentionBot: true }), ctx, config);
@@ -138,7 +135,7 @@ describe("telegram group chat disabled (groupEnabled=false)", () => {
     });
   });
 
-  it("replies '暂不支持群聊' to a reply directed at the bot", async () => {
+  it("replies in the configured language to a reply directed at the bot", async () => {
     const { ctx, deliver, sendMessage } = makeCtx();
 
     await handleUpdate(groupUpdate(-100123, 5693819232, { replyToBot: true }), ctx, config);

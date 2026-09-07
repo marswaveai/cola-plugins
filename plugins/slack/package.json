@@ -1,6 +1,6 @@
 {
   "name": "cola-plugin-slack",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Slack channel plugin for Cola",
   "license": "Apache-2.0",
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marswave/cola-plugin-sdk": "0.0.3",
+    "@marswave/cola-plugin-sdk": "0.1.0",
     "@slack/socket-mode": "^2.0.4",
     "@slack/web-api": "^7.9.3"
   },
@@ -27,13 +27,22 @@
   "cola": {
     "plugin": {
       "id": "slack",
-      "entry": "./dist/index.js"
+      "entry": "./dist/index.js",
+      "minColaVersion": "1.99.0"
     },
     "channel": {
       "label": "Slack",
       "description": "Slack messaging via Socket Mode",
       "iconUrl": "https://a.slack-edge.com/80588/marketing/img/meta/slack_hash_256.png",
-      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/slack/README.md"
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/slack/README.md",
+      "i18n": {
+        "en": "./locales/en.json",
+        "es": "./locales/es.json",
+        "ja": "./locales/ja.json",
+        "ko": "./locales/ko.json",
+        "zh-CN": "./locales/zh-CN.json",
+        "zh-TW": "./locales/zh-TW.json"
+      }
     }
   }
 }

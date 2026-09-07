@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "node:fs/promises";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
@@ -8,6 +8,7 @@ const DEFAULT_PUBLIC_BASE = "https://files.colaos.ai";
 
 export type RegistryEntry = {
   id: string;
+  i18n?: Record<string, Record<string, string>>;
   label: string;
   description?: string;
   version: string;
@@ -71,16 +72,75 @@ export function entryFromPackage(pkg: unknown, publicBase: string): RegistryEntr
   };
 }
 
-export function buildRegistry(pluginsDir: string, publicBase: string) {
+export async function readTranslations(directory: string, files: unknown) {
+  const resources: Record<string, Record<string, string>> = Object.create(null);
+  if (files === undefined) return resources;
+  if (!isRecord(files)) throw new Error("cola.channel.i18n must map locales to JSON files");
+  const root = await fs.realpath(directory);
+  const parameters = new Map<string, string>();
+  for (const [locale, file] of Object.entries(files)) {
+    if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(locale) || typeof file !== "string")
+      throw new Error(`Invalid translation registration: ${locale}`);
+    if (path.isAbsolute(file) || file.split(/[\\/]/).includes(".."))
+      throw new Error(`Translation path must be relative to the plugin: ${file}`);
+    const target = await fs.realpath(path.resolve(root, file));
+    const relative = path.relative(root, target);
+    if (
+      !relative ||
+      relative.startsWith("..") ||
+      path.isAbsolute(relative) ||
+      !target.endsWith(".json")
+    )
+      throw new Error(`Translation file must be inside the plugin: ${file}`);
+    if ((await fs.stat(target)).size > 1024 * 1024)
+      throw new Error(`Translation file exceeds 1 MiB: ${file}`);
+    const catalog: unknown = JSON.parse(await fs.readFile(target, "utf8"));
+    if (!isRecord(catalog)) throw new Error(`Invalid translation catalog: ${locale}`);
+    const valid: Record<string, string> = Object.create(null);
+    for (const [key, value] of Object.entries(catalog)) {
+      if (typeof value !== "string") throw new Error(`Invalid translation: ${locale}:${key}`);
+      valid[key] = value;
+      if (!value.trim()) continue;
+      const names = [
+        ...new Set([...value.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)].map((match) => match[1])),
+      ]
+        .sort()
+        .join(",");
+      if (parameters.has(key) && parameters.get(key) !== names)
+        throw new Error(`Translation parameters differ for ${locale}:${key}`);
+      parameters.set(key, names);
+    }
+    resources[locale] = valid;
+  }
+  return resources;
+}
+
+export async function buildRegistry(pluginsDir: string, publicBase: string) {
   const entries: RegistryEntry[] = [];
-  for (const name of fs.readdirSync(pluginsDir)) {
+  for (const name of await fs.readdir(pluginsDir)) {
     const dir = path.join(pluginsDir, name);
-    if (!fs.statSync(dir).isDirectory()) continue;
+    if (!(await fs.stat(dir)).isDirectory()) continue;
     const pkgPath = path.join(dir, "package.json");
-    if (!fs.existsSync(pkgPath)) continue;
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    const raw = await fs.readFile(pkgPath, "utf8").catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return undefined;
+      throw error;
+    });
+    if (raw === undefined) continue;
+    const pkg = JSON.parse(raw);
     const entry = entryFromPackage(pkg, publicBase);
-    if (entry) entries.push(entry);
+    if (!entry) continue;
+    const resources = await readTranslations(dir, pkg.cola?.channel?.i18n);
+    if (Object.keys(resources).length) {
+      entry.i18n = Object.fromEntries(
+        Object.entries(resources).map(([locale, catalog]) => [
+          locale,
+          Object.fromEntries(
+            Object.entries(catalog).filter(([key]) => key === "label" || key === "description"),
+          ),
+        ]),
+      );
+    }
+    entries.push(entry);
   }
   return { version: 1, plugins: entries };
 }
@@ -88,12 +148,19 @@ export function buildRegistry(pluginsDir: string, publicBase: string) {
 const isMain =
   process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 
-if (isMain) {
+async function main() {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const pluginsDir = path.resolve(moduleDir, "..", "plugins");
   const publicBase = process.env.OSS_PUBLIC_BASE || DEFAULT_PUBLIC_BASE;
-  const registry = buildRegistry(pluginsDir, publicBase);
+  const registry = await buildRegistry(pluginsDir, publicBase);
   const outPath = path.resolve(moduleDir, "..", "registry.json");
-  fs.writeFileSync(outPath, JSON.stringify(registry, null, 2) + "\n");
+  await fs.writeFile(outPath, JSON.stringify(registry, null, 2) + "\n");
   console.log(`Wrote registry.json with ${registry.plugins.length} plugin(s)`);
+}
+
+if (isMain) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

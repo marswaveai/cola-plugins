@@ -1,3 +1,4 @@
+import { pluginMessage as m } from "@marswave/cola-plugin-sdk";
 import { defineChannel } from "@marswave/cola-plugin-sdk";
 import type {
   ChannelOutboundAdapter,
@@ -55,6 +56,19 @@ export default defineChannel<SlackGatewayState>({
     description: "Slack messaging via Socket Mode",
     markdownCapable: true,
   },
+  unauthorizedHint(target) {
+    return target.kind === "group"
+      ? m(
+          "auth.group",
+          "This group is not authorized. Ask an administrator to run:\n```\ncola channel allow-group {{plugin}} {{id}}\n```",
+          { plugin: "slack", id: target.id },
+        )
+      : m(
+          "auth.user",
+          "Access is not authorized. Ask an administrator to run:\n```\ncola channel allow {{plugin}} {{id}}\n```",
+          { plugin: "slack", id: target.id },
+        );
+  },
   capabilities: {
     receive: { text: true, image: true, file: true },
     send: { text: true, markdown: true, image: true, file: true, reaction: true, typing: true },
@@ -65,7 +79,7 @@ export default defineChannel<SlackGatewayState>({
       fields: [
         {
           key: "botToken",
-          label: "Bot token",
+          label: m("config.botToken", "Bot token"),
           type: "password",
           required: true,
           secret: true,
@@ -73,21 +87,26 @@ export default defineChannel<SlackGatewayState>({
         },
         {
           key: "appToken",
-          label: "App-level token",
+          label: m("config.appToken", "App-level token"),
           type: "password",
           required: true,
           secret: true,
           placeholder: "xapp-...",
-          description: "App-level token with the connections:write scope (Socket Mode).",
+          description: m(
+            "config.appTokenHelp",
+            "App-level token with the connections:write scope (Socket Mode).",
+          ),
         },
         {
           key: "allowedIds",
-          label: "Allowed IDs",
+          label: m("config.allowedIds", "Allowed IDs"),
           type: "text",
           required: true,
           placeholder: "U0123ABC,C0456DEF",
-          description:
+          description: m(
+            "config.slackHelp",
             "Comma-separated Slack user IDs (DMs) and channel IDs accepted by the plugin.",
+          ),
         },
         // Only the tokens and allowlist are exposed in the config UI. The
         // remaining options (ignoreBotMessages, unfurlLinks) keep their

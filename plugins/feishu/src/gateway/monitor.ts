@@ -1,3 +1,4 @@
+import type { PluginRuntime } from "@marswave/cola-plugin-sdk";
 import type * as lark from "@larksuiteoapi/node-sdk";
 import type { PluginLogger, DeliverFn } from "@marswave/cola-plugin-sdk";
 import type { FeishuAccountConfig } from "../api/types.js";
@@ -20,6 +21,7 @@ export type MonitorHandle = {
  * Authorization is handled by the host SDK access gate, not here.
  */
 export async function startMonitor(opts: {
+  i18n?: PluginRuntime["i18n"];
   accountId: string;
   config: FeishuAccountConfig;
   deliver: DeliverFn;
@@ -41,6 +43,7 @@ export async function startMonitor(opts: {
 
   const deps = {
     client,
+    i18n: opts.i18n,
     accountId,
     logger,
     deliver,

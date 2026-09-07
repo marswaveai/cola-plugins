@@ -1,3 +1,5 @@
+import { resolvePluginText } from "@marswave/cola-plugin-sdk";
+import zhCN from "../locales/zh-CN.json";
 import type { AuthContext, PluginLogger, PluginRuntime } from "@marswave/cola-plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 
@@ -51,7 +53,10 @@ describe("createFeishuAuth().login (one-click app creation)", () => {
 
     expect(onQrCode).toHaveBeenCalledWith("https://feishu/qr", "https://feishu/qr");
     expect(onStatus).toHaveBeenCalledWith("polling");
-    expect(onStatus).toHaveBeenCalledWith("success", expect.any(String));
+    const success = onStatus.mock.calls.find(([status]) => status === "success");
+    expect(resolvePluginText(success?.[1], { "zh-CN": zhCN }, "zh-CN")).toBe(
+      "应用创建成功，凭据已保存。",
+    );
 
     expect(patch).toHaveBeenCalledTimes(1);
     expect(patch).toHaveBeenCalledWith({

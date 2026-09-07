@@ -1,3 +1,5 @@
+import { resolvePluginText } from "@marswave/cola-plugin-sdk";
+import zhCN from "../locales/zh-CN.json";
 import type * as lark from "@larksuiteoapi/node-sdk";
 import type { DeliverFn, PluginLogger } from "@marswave/cola-plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
@@ -79,6 +81,7 @@ function register(
   registerMessageHandler(dispatcher, {
     client,
     accountId: "default",
+    i18n: { text: async (text) => resolvePluginText(text, { "zh-CN": zhCN }, "zh-CN") },
     logger,
     deliver,
     dedup: new MessageDedup(),
@@ -260,7 +263,7 @@ describe("Feishu message delivery (SDK access gate)", () => {
 });
 
 describe("Feishu group chat disabled (groupEnabled=false)", () => {
-  it("replies '暂不支持群聊' to a group @mention and does not deliver", async () => {
+  it("replies in the configured language to a group @mention and does not deliver", async () => {
     const { handler, deliver, create } = register({ botOpenId: "ou_bot", groupEnabled: false });
 
     await handler(groupMessage("ou_alice", [botMention("ou_bot")]));
@@ -273,7 +276,7 @@ describe("Feishu group chat disabled (groupEnabled=false)", () => {
     };
     expect(arg.params.receive_id_type).toBe("chat_id");
     expect(arg.data.receive_id).toBe("group-chat1");
-    expect(arg.data.content).toContain("暂不支持群聊");
+    expect(arg.data.content).toContain("尚未启用群聊，请私信机器人。");
   });
 
   it("ignores a group message without an @bot mention", async () => {

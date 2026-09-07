@@ -1,3 +1,4 @@
+import { pluginMessage as m, PluginLocalizedError } from "@marswave/cola-plugin-sdk";
 import { WebClient } from "@slack/web-api";
 import type { OutboundContext, ReactionContext } from "@marswave/cola-plugin-sdk";
 import { readSlackConfig } from "./config.js";
@@ -205,7 +206,8 @@ export function resolveEmojiName(emoji: string): string | undefined {
 
 function resolveClient(state: SlackGatewayState, botToken: string): WebClient {
   if (state.web) return state.web;
-  if (!botToken) throw new Error("Slack bot token is not configured");
+  if (!botToken)
+    throw new PluginLocalizedError(m("error.botToken", "Bot token is not configured."));
   return new WebClient(botToken);
 }
 
