@@ -1,7 +1,11 @@
 import type * as lark from "@larksuiteoapi/node-sdk";
 import type { DeliverFn, PluginLogger } from "@marswave/cola-plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
-import { registerMessageHandler, registerReactionHandler } from "../src/gateway/event-handler.js";
+import {
+  registerMessageHandler,
+  registerReactionHandler,
+  shouldDeliverReaction,
+} from "../src/gateway/event-handler.js";
 import { MessageDedup } from "../src/gateway/dedup.js";
 import type { ChatMap } from "../src/gateway/chat-map.js";
 import { GroupContextTracker } from "../src/gateway/group-context.js";
@@ -363,5 +367,113 @@ describe("Feishu reaction delivery (SDK access gate)", () => {
         }),
       }),
     );
+  });
+});
+
+function reactionClient(opts: { chatId?: string; chatMode?: string; chatGetFails?: boolean }) {
+  const get = vi.fn(async () => ({
+    data: {
+      items: [
+        {
+          chat_id: opts.chatId ?? "chat1",
+          msg_type: "text",
+          body: { content: JSON.stringify({ text: "hi" }) },
+        },
+      ],
+    },
+  }));
+  const chatGet = opts.chatGetFails
+    ? vi.fn(async () => {
+        throw new Error("insufficient scope");
+      })
+    : vi.fn(async () => ({ data: { chat_mode: opts.chatMode } }));
+  return { im: { message: { get }, chat: { get: chatGet } } } as unknown as lark.Client;
+}
+
+type ReactionGateOpts = {
+  chatId?: string;
+  chatMode?: string;
+  chatGetFails?: boolean;
+  reactionInGroup?: boolean;
+  reactionInDm?: boolean;
+};
+
+async function runReaction(opts: ReactionGateOpts) {
+  let handler!: (data: ReactionData) => Promise<unknown>;
+  const dispatcher = {
+    register(events: Record<string, (data: ReactionData) => Promise<Record<string, never>>>) {
+      handler = events["im.message.reaction.created_v1"];
+    },
+  } as unknown as lark.EventDispatcher;
+
+  const deliver = vi.fn(async () => {}) as unknown as DeliverFn;
+  const logger = makeLogger();
+  const chatMap = { set: vi.fn(), get: vi.fn(), hasUser: vi.fn() } as unknown as ChatMap;
+
+  registerReactionHandler(dispatcher, {
+    client: reactionClient(opts),
+    accountId: "default",
+    logger,
+    deliver,
+    dedup: new MessageDedup(),
+    chatMap,
+    groupContext: new GroupContextTracker(),
+    groupEnabled: true,
+    reactionInGroup: opts.reactionInGroup,
+    reactionInDm: opts.reactionInDm,
+  });
+
+  await handler({
+    message_id: "m9",
+    user_id: { open_id: "ou_alice" },
+    reaction_type: { emoji_type: "THUMBSUP" },
+    event_id: `e-${Math.random()}`,
+  });
+
+  return { deliver, logger };
+}
+
+describe("Feishu reaction chat-type gate", () => {
+  it("drops a group reaction by default — groups wake on @mentions only", async () => {
+    const { deliver, logger } = await runReaction({ chatMode: "group" });
+
+    expect(deliver).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("chat_mode=group"));
+  });
+
+  it("delivers a group reaction when reactionInGroup is enabled", async () => {
+    const { deliver } = await runReaction({ chatMode: "group", reactionInGroup: true });
+
+    expect(deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it("delivers a direct-message reaction by default", async () => {
+    const { deliver } = await runReaction({ chatMode: "p2p" });
+
+    expect(deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a direct-message reaction when reactionInDm is disabled", async () => {
+    const { deliver } = await runReaction({ chatMode: "p2p", reactionInDm: false });
+
+    expect(deliver).not.toHaveBeenCalled();
+  });
+
+  it("keeps the historical behavior and warns when chat_mode cannot be resolved", async () => {
+    const { deliver, logger } = await runReaction({ chatGetFails: true });
+
+    expect(deliver).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("im:chat:readonly"));
+  });
+
+  it("shouldDeliverReaction treats every non-p2p chat mode as a group", () => {
+    const gate = { allowGroup: false, allowDm: true };
+
+    expect(shouldDeliverReaction("p2p", gate)).toBe("deliver");
+    expect(shouldDeliverReaction("group", gate)).toBe("skip");
+    expect(shouldDeliverReaction("topic", gate)).toBe("skip");
+    expect(shouldDeliverReaction(undefined, gate)).toBe("unknown");
+    expect(shouldDeliverReaction("group", { ...gate, allowGroup: true })).toBe("deliver");
+    expect(shouldDeliverReaction("p2p", { ...gate, allowDm: false })).toBe("skip");
   });
 });

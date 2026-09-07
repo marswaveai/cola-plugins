@@ -16,6 +16,13 @@ export type FeishuPluginConfig = {
   accounts?: Record<string, FeishuAccountConfig>;
   /** Enable group chat. When false (default), @mentions in groups get a "not supported" reply. */
   groupEnabled?: boolean;
+  /**
+   * Let a message reaction (emoji) in a group wake the agent. Default false: group chats
+   * wake on @mentions only, since an emoji acknowledgement is not an instruction.
+   */
+  reactionInGroup?: boolean;
+  /** Let a message reaction (emoji) in a direct message wake the agent. Default true. */
+  reactionInDm?: boolean;
 };
 
 /** Pre-SDK-gate account config that may still carry a legacy authorizedOpenIds allowlist. */

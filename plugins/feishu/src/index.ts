@@ -104,6 +104,8 @@ export default defineChannel<FeishuGatewayState>({
         // `groupEnabled` is intentionally not exposed in the config UI: group chat
         // stays disabled (gateway reads `config.groupEnabled ?? false`). The field
         // remains in FeishuPluginConfig and can be flipped via channels.json if needed.
+        // `reactionInGroup` / `reactionInDm` follow the same rule: sensible defaults,
+        // editable in channels.json only.
       ],
     },
   },
@@ -157,6 +159,10 @@ export default defineChannel<FeishuGatewayState>({
       }
 
       const groupEnabled = config.groupEnabled ?? false;
+      // Reactions are feedback, not instructions: groups stay @-mention-only unless the
+      // operator opts in, while direct-message reactions keep waking the agent.
+      const reactionInGroup = config.reactionInGroup ?? false;
+      const reactionInDm = config.reactionInDm ?? true;
 
       for (const [accountId, acctConfig] of accounts) {
         try {
@@ -167,6 +173,8 @@ export default defineChannel<FeishuGatewayState>({
             logger: ctx.logger,
             abortSignal: ctx.abortSignal,
             groupEnabled,
+            reactionInGroup,
+            reactionInDm,
           });
           monitors.set(accountId, handle);
         } catch (err) {

@@ -27,7 +27,44 @@ export type EventHandlerDeps = {
   botOpenId?: string;
   /** When false, group @mentions get a "not supported" reply instead of reaching the agent. */
   groupEnabled: boolean;
+  /** When true, a message reaction in a group also wakes the agent. Default false. */
+  reactionInGroup?: boolean;
+  /** When false, a message reaction in a direct message no longer wakes the agent. Default true. */
+  reactionInDm?: boolean;
 };
+
+/** Effective reaction gating, with documented defaults applied. */
+export function resolveReactionGate(
+  deps: Pick<EventHandlerDeps, "reactionInGroup" | "reactionInDm">,
+) {
+  return {
+    allowGroup: deps.reactionInGroup === true,
+    allowDm: deps.reactionInDm !== false,
+  };
+}
+
+/**
+ * Decide whether a message reaction should reach the agent.
+ *
+ * `chatMode` is Feishu's `im.v1.chat.get` value (`p2p` for direct chats, `group` for
+ * groups and topic groups). Group chats wake on @mentions only, so a reaction there is
+ * dropped unless `allowGroup` is set — an emoji is feedback, not an instruction. When the
+ * chat type cannot be resolved (e.g. the app lacks `im:chat:readonly`), the historical
+ * behavior is kept and the caller is told to grant the scope.
+ */
+export function shouldDeliverReaction(
+  chatMode: string | undefined,
+  gate: { allowGroup: boolean; allowDm: boolean },
+): "deliver" | "skip" | "unknown" {
+  if (chatMode === undefined) return "unknown";
+  return chatMode === "p2p"
+    ? gate.allowDm
+      ? "deliver"
+      : "skip"
+    : gate.allowGroup
+      ? "deliver"
+      : "skip";
+}
 
 type ReactionAction = "created" | "deleted";
 
@@ -49,6 +86,8 @@ type ReactionEventData = {
 
 type ReactedMessageContext = {
   chatId?: string;
+  /** Feishu `chat_mode`: `p2p` for direct chats, `group` for groups and topic groups. */
+  chatMode?: string;
   summary?: string;
 };
 
@@ -258,18 +297,30 @@ async function handleReaction(
   }
 
   const context = await resolveReactedMessageContext(client, messageId, logger);
+  const verb = action === "created" ? "added" : "removed";
+
+  const decision = shouldDeliverReaction(context.chatMode, resolveReactionGate(deps));
+  if (decision === "skip") {
+    logger.info(
+      `feishu[${accountId}]: ignoring ${verb} reaction ${emojiType} on ${messageId} in chat ${context.chatId} (chat_mode=${context.chatMode})`,
+    );
+    return;
+  }
+  if (decision === "unknown" && context.chatId) {
+    logger.warn(
+      `feishu[${accountId}]: chat_mode unresolved for chat ${context.chatId}; delivering ${verb} reaction ${emojiType} ungated. Grant the app the im:chat:readonly scope to gate group reactions.`,
+    );
+  }
+
   if (context.chatId) {
     chatMap.set(senderId, context.chatId);
   }
 
-  const verb = action === "created" ? "added" : "removed";
   const summary = context.summary ? `\nReacted message: ${context.summary}` : "";
 
-  // Reactions are inherently per-user actions; deliver as a direct conversation
-  // so the gate authorizes by sender. Group reaction semantics are not modeled:
-  // a reaction from an unauthorized user on a group message is gated as a DM, so
-  // the host's user-level unauthorized hint may post into the group chat. Accepted
-  // limitation for this iteration (the per-target cooldown prevents spam).
+  // Reactions are inherently per-user actions; deliver as a direct conversation so the
+  // gate authorizes by sender. Chat type is resolved first so that group reactions obey
+  // the same "@ only" contract as group messages (see shouldDeliverReaction).
   await deliver({
     sessionId: context.chatId
       ? ["chat", accountId, context.chatId, "sender", senderId]
@@ -296,8 +347,22 @@ async function resolveReactedMessageContext(
       params: { user_id_type: "open_id" },
     });
     const message = result?.data?.items?.[0];
+    const chatId = message?.chat_id;
+    let chatMode: string | undefined;
+    if (chatId) {
+      try {
+        const chat = await client.im.chat.get({
+          path: { chat_id: chatId },
+          params: { user_id_type: "open_id" },
+        });
+        chatMode = chat?.data?.chat_mode;
+      } catch (err) {
+        logger.warn(`Failed to load chat mode for ${chatId}`, err);
+      }
+    }
     return {
-      chatId: message?.chat_id,
+      chatId,
+      chatMode,
       summary: summarizeReactedMessage(message),
     };
   } catch (err) {
