@@ -17,6 +17,14 @@ async function fixture() {
   temporary.push(root);
   const plugin = path.join(root, "plugins/example");
   await mkdir(path.join(plugin, "translations"), { recursive: true });
+  await mkdir(path.join(plugin, "src"));
+  await writeFile(
+    path.join(plugin, "src/index.ts"),
+    `
+    import { pluginMessage as m } from '@marswave/cola-plugin-sdk';
+    m('auth.wait', 'Wait {{seconds}} seconds');
+  `,
+  );
   const pkg = {
     version: "1.0.0",
     cola: {
@@ -76,5 +84,29 @@ describe("plugin translation publication", () => {
     expect((await readTranslations(staging, pkg.cola.channel.i18n))["zh-CN"]?.label).toBe("示例");
     await writeFile(path.join(plugin, "translations/zh-CN.json"), "invalid");
     await expect(promisify(execFile)(command, args)).rejects.toThrow("Command failed");
+  });
+
+  it("rejects catalogs that agree with each other but no longer match the source fallback", async () => {
+    const { root, plugin } = await fixture();
+    await writeFile(
+      path.join(plugin, "src/index.ts"),
+      `
+      import { pluginMessage as localized } from '@marswave/cola-plugin-sdk';
+      localized('auth.wait', 'Wait {{minutes}} minutes');
+    `,
+    );
+    await expect(
+      buildRegistry(path.join(root, "plugins"), "https://files.example.com"),
+    ).rejects.toThrow("parameters differ from code fallback for en:auth.wait");
+    await expect(stagePluginLocales(plugin, path.join(root, "staging"))).rejects.toThrow(
+      "parameters differ from code fallback",
+    );
+    await expect(
+      promisify(execFile)(path.resolve("node_modules/.bin/tsx"), [
+        "scripts/stage-plugin-locales.ts",
+        plugin,
+        path.join(root, "release"),
+      ]),
+    ).rejects.toThrow("parameters differ from code fallback");
   });
 });

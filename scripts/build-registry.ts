@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { validatePluginMessageSources } from "./plugin-message-validation.js";
 
 // 下载与 manifest 的公开根 URL(colaos OSS bucket 的 CDN 域名)。
 // 可用 OSS_PUBLIC_BASE 环境变量覆盖(本地/staging)。
@@ -130,6 +131,9 @@ export async function buildRegistry(pluginsDir: string, publicBase: string) {
     const entry = entryFromPackage(pkg, publicBase);
     if (!entry) continue;
     const resources = await readTranslations(dir, pkg.cola?.channel?.i18n);
+    if (pkg.cola?.channel?.i18n) {
+      await validatePluginMessageSources(path.join(dir, "src"), resources);
+    }
     if (Object.keys(resources).length) {
       entry.i18n = Object.fromEntries(
         Object.entries(resources).map(([locale, catalog]) => [

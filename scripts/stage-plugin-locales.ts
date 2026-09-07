@@ -2,11 +2,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { readTranslations } from "./build-registry.js";
+import { validatePluginMessageSources } from "./plugin-message-validation.js";
 
 export async function stagePluginLocales(directory: string, staging: string) {
   const pkg = JSON.parse(await fs.readFile(path.join(directory, "package.json"), "utf8"));
   const files = pkg.cola?.channel?.i18n;
-  await readTranslations(directory, files);
+  const resources = await readTranslations(directory, files);
+  if (files) await validatePluginMessageSources(path.join(directory, "src"), resources);
   for (const file of Object.values(files ?? {}) as string[]) {
     const target = path.resolve(staging, file);
     await fs.mkdir(path.dirname(target), { recursive: true });
