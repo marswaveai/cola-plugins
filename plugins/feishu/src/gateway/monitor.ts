@@ -26,8 +26,21 @@ export async function startMonitor(opts: {
   logger: PluginLogger;
   abortSignal: AbortSignal;
   groupEnabled: boolean;
+  /** When true, reactions in groups also wake the agent. Default false. */
+  reactionInGroup?: boolean;
+  /** When false, reactions in direct messages stop waking the agent. Default true. */
+  reactionInDm?: boolean;
 }): Promise<MonitorHandle> {
-  const { accountId, config, deliver, logger, abortSignal, groupEnabled } = opts;
+  const {
+    accountId,
+    config,
+    deliver,
+    logger,
+    abortSignal,
+    groupEnabled,
+    reactionInGroup,
+    reactionInDm,
+  } = opts;
 
   // Create client and dispatcher
   const client = createLarkClient(accountId, config);
@@ -49,6 +62,8 @@ export async function startMonitor(opts: {
     groupContext,
     botOpenId,
     groupEnabled,
+    reactionInGroup,
+    reactionInDm,
   };
 
   // Register event handlers

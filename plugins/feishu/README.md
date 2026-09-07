@@ -76,14 +76,15 @@ cola channel login feishu
 打开 `权限管理`，添加这个插件需要的权限。飞书后台中的权限名称可能会变化，优先按权限
 标识搜索。
 
-| 权限标识                           | 用途                           |
-| ---------------------------------- | ------------------------------ |
-| `im:message`                       | 接收和处理单聊、群聊消息。     |
-| `im:message:send_as_bot`           | 以机器人身份发送回复。         |
-| `im:message:readonly`              | 读取消息详情和表情回应上下文。 |
-| `im:resource`                      | 上传和下载图片、文件。         |
-| `im:message.p2p_msg:readonly`      | 接收用户发给机器人的单聊消息。 |
-| `im:message.group_at_msg:readonly` | 接收群聊里 @机器人的消息。     |
+| 权限标识                           | 用途                                                           |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `im:message`                       | 接收和处理单聊、群聊消息。                                     |
+| `im:message:send_as_bot`           | 以机器人身份发送回复。                                         |
+| `im:message:readonly`              | 读取消息详情和表情回应上下文。                                 |
+| `im:resource`                      | 上传和下载图片、文件。                                         |
+| `im:message.p2p_msg:readonly`      | 接收用户发给机器人的单聊消息。                                 |
+| `im:message.group_at_msg:readonly` | 接收群聊里 @机器人的消息。                                     |
+| `im:chat:readonly`                 | 可选：判断表情回复发生在单聊还是群聊，用于拦住群里的表情唤醒。 |
 
 如果后台支持批量导入权限，可以先导入这一组：
 
@@ -96,7 +97,8 @@ cola channel login feishu
       "im:message:readonly",
       "im:resource",
       "im:message.p2p_msg:readonly",
-      "im:message.group_at_msg:readonly"
+      "im:message.group_at_msg:readonly",
+      "im:chat:readonly"
     ]
   }
 }
@@ -194,6 +196,16 @@ cola channel allow-group feishu oc_xxx
   服务重启后首次被 @ 会改为拉取最近若干条。被动接收群里全部消息（需敏感权限
   `im:message.group_msg`）作为后续增强，暂未启用。
 
+### 表情回复（reaction）
+
+表情是反馈，不是命令，所以默认只在单聊唤醒机器人：
+
+- **群聊**：默认丢弃，只记一条 INFO 日志（`ignoring added reaction ... chat_mode=group`），
+  和群消息一样遵守「被 @ 才响应」。想改回来：`reactionInGroup: true`。
+- **单聊**：默认照常唤醒。不想要：`reactionInDm: false`。
+- 判断不了会话类型时（应用没有 `im:chat:readonly`）保持旧行为并记一条 WARN，
+  不会把一个能用的功能默默关掉。
+
 ## 测试
 
 1. 给机器人发单聊消息，或在已添加机器人的群里 @机器人。
@@ -216,12 +228,14 @@ cola channel allow-group feishu oc_xxx
 
 ## 配置字段
 
-| 字段           | 必需 | 默认值   | 说明                                                     |
-| -------------- | ---- | -------- | -------------------------------------------------------- |
-| `appId`        | 是   |          | 飞书/Lark 机器人应用 ID，例如 `cli_xxx`。                |
-| `appSecret`    | 是   |          | 机器人应用密钥。请作为 secret 保存。                     |
-| `domain`       | 否   | `feishu` | 国内飞书用 `feishu`，国际版 Lark 用 `lark`。             |
-| `groupEnabled` | 否   | `false`  | 是否启用群聊。关闭时群里 @机器人只回复「暂不支持群聊」。 |
+| 字段              | 必需 | 默认值   | 说明                                                       |
+| ----------------- | ---- | -------- | ---------------------------------------------------------- |
+| `appId`           | 是   |          | 飞书/Lark 机器人应用 ID，例如 `cli_xxx`。                  |
+| `appSecret`       | 是   |          | 机器人应用密钥。请作为 secret 保存。                       |
+| `domain`          | 否   | `feishu` | 国内飞书用 `feishu`，国际版 Lark 用 `lark`。               |
+| `groupEnabled`    | 否   | `false`  | 是否启用群聊。关闭时群里 @机器人只回复「暂不支持群聊」。   |
+| `reactionInGroup` | 否   | `false`  | 群里的表情回复（reaction）是否唤醒机器人。群聊默认只认 @。 |
+| `reactionInDm`    | 否   | `true`   | 单聊里的表情回复（reaction）是否唤醒机器人。               |
 
 谁能使用 Cola 不再通过配置字段控制，改用 `cola channel allow[-group]` 授信，见
 [访问授信](#访问授信谁能使用-cola)。
