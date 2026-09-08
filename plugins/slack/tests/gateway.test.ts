@@ -105,6 +105,115 @@ describe("slack gateway startup", () => {
     expect(ctx.runtime.identity.bind).toHaveBeenCalledWith("U123");
   });
 
+  it("logs acknowledgement failures without rejecting the event listener", async () => {
+    const ctx = makeGatewayContext("U123");
+    await startGateway(ctx);
+    const listener = slackMocks.socketOn.mock.calls.find(([name]) => name === "message")![1];
+    const error = new Error("Socket closed during acknowledgement");
+    await expect(
+      listener({ event: {}, ack: vi.fn().mockRejectedValue(error) }),
+    ).resolves.toBeUndefined();
+    expect(ctx.logger.warn).toHaveBeenCalledWith("Failed to handle Slack event", error);
+    expect(ctx.deliver).not.toHaveBeenCalled();
+  });
+
+  it.each(["channel", "group", "mpim"])(
+    "ignores unmentioned %s posts before downloading or binding their sender",
+    async (channelType) => {
+      const ctx = makeGatewayContext("C123");
+      await startGateway(ctx);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("unrelated attachment")),
+      );
+      await receive({
+        channel: "C123",
+        channel_type: channelType,
+        ts: "1",
+        user: "U123",
+        text: "ordinary post",
+        files: [{ id: "F1", name: "note.txt", url_private: "https://slack.example/file" }],
+      });
+      expect(fetch).not.toHaveBeenCalled();
+      expect(ctx.runtime.identity.resolve).not.toHaveBeenCalled();
+      expect(ctx.runtime.identity.bind).not.toHaveBeenCalled();
+      expect(slackMocks.userInfo).not.toHaveBeenCalled();
+      expect(ctx.deliver).not.toHaveBeenCalled();
+      expect(ctx.state.lastEventAt).toBeUndefined();
+    },
+  );
+
+  it("delivers channel mentions once across message and app_mention events", async () => {
+    const ctx = makeGatewayContext("C123");
+    await startGateway(ctx);
+    const event = { channel: "C123", ts: "1", user: "U123", text: "<@UBOT> hello" };
+    await receive(event);
+    await receive(event, "app_mention");
+    expect(ctx.deliver).toHaveBeenCalledOnce();
+    expect(ctx.deliver).toHaveBeenCalledWith(
+      expect.objectContaining({ mentionedBot: true, message: "hello" }),
+    );
+  });
+
+  it("rejects more than ten attachments before fetching or binding", async () => {
+    const ctx = makeGatewayContext("U123");
+    await startGateway(ctx);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("file")),
+    );
+    await receive({
+      channel: "D123",
+      channel_type: "im",
+      ts: "1",
+      user: "U123",
+      text: "files",
+      files: Array.from({ length: 11 }, (_, index) => ({
+        id: `F${index}`,
+        url_private: `https://slack.example/${index}`,
+      })),
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(ctx.runtime.identity.bind).not.toHaveBeenCalled();
+    expect(ctx.deliver).not.toHaveBeenCalled();
+  });
+
+  it("cleans up the whole message when two valid files exceed 100 MiB together", async () => {
+    const ctx = makeGatewayContext("U123");
+    await startGateway(ctx);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        let chunks = 60;
+        const chunk = new Uint8Array(1024 * 1024);
+        return new Response(
+          new ReadableStream({
+            pull(controller) {
+              if (chunks-- > 0) controller.enqueue(chunk);
+              else controller.close();
+            },
+          }),
+        );
+      }),
+    );
+    await receive({
+      channel: "D123",
+      channel_type: "im",
+      ts: "1",
+      user: "U123",
+      text: "files",
+      files: [
+        { id: "F1", url_private: "https://slack.example/one" },
+        { id: "F2", url_private: "https://slack.example/two" },
+        { id: "F3", url_private: "https://slack.example/three" },
+      ],
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(await readdir(path.join(temporary, "cola-slack"))).toEqual([]);
+    expect(ctx.runtime.identity.bind).not.toHaveBeenCalled();
+    expect(ctx.deliver).not.toHaveBeenCalled();
+  });
+
   it.each(["botToken", "appToken"])("does not connect without %s", async (missing) => {
     const ctx = makeGatewayContext("");
     ctx.config = { ...ctx.config, [missing]: "" };

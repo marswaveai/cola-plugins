@@ -14,7 +14,68 @@ type SlackDownloadOptions = {
   maxBytes?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
+  onBytes?: (bytes: number) => void;
 };
+
+type SlackAttachmentOptions = {
+  maxBytes?: number;
+  maxFiles?: number;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+};
+
+/** Download one message's attachments, retaining ownership until the batch succeeds. */
+export async function downloadSlackFiles(
+  files: SlackFile[],
+  botToken: string,
+  logger: PluginLogger,
+  options: SlackAttachmentOptions = {},
+): Promise<string[]> {
+  const maxFiles = options.maxFiles ?? 10;
+  if (files.length > maxFiles) {
+    throw new Error(`Message exceeds the ${maxFiles} attachment limit`);
+  }
+  if (files.length === 0) return [];
+
+  const maxBytes = options.maxBytes ?? 100 * 1024 * 1024;
+  const budget = new AbortController();
+  const signal = AbortSignal.any([
+    budget.signal,
+    AbortSignal.timeout(options.timeoutMs ?? 60_000),
+    ...(options.signal ? [options.signal] : []),
+  ]);
+  const paths: string[] = [];
+  let downloadedBytes = 0;
+  try {
+    for (const file of files) {
+      signal.throwIfAborted();
+      const filePath = await downloadSlackFile(file, botToken, logger, {
+        signal,
+        onBytes(bytes) {
+          // Failed downloads also consume the message's transfer budget.
+          downloadedBytes += bytes;
+          if (downloadedBytes > maxBytes) {
+            const error = new Error(`Message exceeds the ${maxBytes} byte attachment limit`);
+            budget.abort(error);
+            throw error;
+          }
+        },
+      });
+      if (filePath) paths.push(filePath);
+      signal.throwIfAborted();
+    }
+    return paths;
+  } catch (error) {
+    await Promise.all(
+      paths.map((filePath) =>
+        rm(filePath, { force: true }).catch((cleanupError) => {
+          logger.warn("Failed to remove an undelivered Slack attachment", cleanupError);
+        }),
+      ),
+    );
+    throw error;
+  }
+}
 
 /**
  * Download a Slack-hosted file to a temp path. Slack private URLs require the
@@ -82,10 +143,14 @@ export async function downloadSlackFile(
       new Transform({
         transform(chunk: Buffer, _encoding, callback) {
           downloadedBytes += chunk.length;
-          if (downloadedBytes > maxBytes) {
-            callback(new Error(`File exceeds the ${maxBytes} byte download limit`));
-          } else {
+          try {
+            options.onBytes?.(chunk.length);
+            if (downloadedBytes > maxBytes) {
+              throw new Error(`File exceeds the ${maxBytes} byte download limit`);
+            }
             callback(null, chunk);
+          } catch (error) {
+            callback(error instanceof Error ? error : new Error(String(error)));
           }
         },
       }),

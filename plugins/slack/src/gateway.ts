@@ -4,7 +4,7 @@ import { WebClient } from "@slack/web-api";
 import { rm } from "node:fs/promises";
 import type { ChannelSender, ChannelStatusResult, GatewayContext } from "@marswave/cola-plugin-sdk";
 import { isSlackConfigured, readSlackConfig, type SlackConfig } from "./config.js";
-import { downloadSlackFile } from "./media.js";
+import { downloadSlackFiles } from "./media.js";
 import {
   isBotMentioned,
   isDirectMessage,
@@ -79,9 +79,9 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
     const senderCache = new Map<string, ChannelSender>();
 
     const handle = async ({ event, ack }: SlackEventArgs) => {
-      await ack();
-      if (ctx.abortSignal.aborted) return;
       try {
+        await ack();
+        if (ctx.abortSignal.aborted) return;
         await handleSlackEvent(event, ctx, config, dedup, senderCache);
       } catch (err) {
         ctx.logger.warn("Failed to handle Slack event", err);
@@ -192,18 +192,19 @@ async function handleSlackEvent(
   if (config.ignoreBotMessages && isFromBot(event, ctx.state.botUserId)) return;
 
   const isDm = isDirectMessage(event);
+  // The host requires a mention for every group/channel message, including
+  // thread replies. Apply the same gate before downloads and identity writes.
+  if (!isDm && !isBotMentioned(event, ctx.state.botUserId)) return;
   const allowed = isDm
     ? (event.user !== undefined && config.allowedIds.has(event.user)) ||
       config.allowedIds.has(event.channel)
     : config.allowedIds.has(event.channel);
 
   if (!allowed) {
-    // Reply with the IDs needed for the allowlist: always in DMs, only on an
-    // explicit @mention in channels (anything else would spam the channel).
-    if (isDm || isBotMentioned(event, ctx.state.botUserId)) {
-      ctx.logger.info(`Skipping Slack message from unlisted ${isDm ? "user" : "channel"}`);
-      await sendAccessNotConfiguredReply(event, ctx);
-    }
+    // Only DMs and channel mentions reach this point, so setup notices cannot
+    // spam the channel in response to ordinary posts.
+    ctx.logger.info(`Skipping Slack message from unlisted ${isDm ? "user" : "channel"}`);
+    await sendAccessNotConfiguredReply(event, ctx);
     return;
   }
 
@@ -216,13 +217,11 @@ async function handleSlackEvent(
   const attachments: string[] = [];
   let delivered = false;
   try {
-    for (const file of event.files ?? []) {
-      if (ctx.abortSignal.aborted) return;
-      const filePath = await downloadSlackFile(file, config.botToken, ctx.logger, {
+    attachments.push(
+      ...(await downloadSlackFiles(event.files ?? [], config.botToken, ctx.logger, {
         signal: ctx.abortSignal,
-      });
-      if (filePath) attachments.push(filePath);
-    }
+      })),
+    );
     if (ctx.abortSignal.aborted) return;
 
     // The configured allowlist is this channel's authorization gate, so bind the
