@@ -109,4 +109,32 @@ describe("plugin translation publication", () => {
       ]),
     ).rejects.toThrow("parameters differ from code fallback");
   });
+  it("ignores shadowed SDK aliases but still validates calls to the imported bindings", async () => {
+    const { root, plugin } = await fixture();
+    await writeFile(
+      path.join(plugin, "src/index.ts"),
+      `
+      import { pluginMessage as m } from '@marswave/cola-plugin-sdk';
+      import * as sdk from '@marswave/cola-plugin-sdk';
+      function parameter(m: any, value: string) { return m(value); }
+      { const m = (value: string) => value; m(dynamicValue); }
+      try {} catch (m) { m(dynamicValue); }
+      function namespace(sdk: any) { return sdk.pluginMessage(dynamicKey); }
+      function hoisted(value: string) { m(value); function m(value: string) { return value; } }
+      m('auth.wait', 'Wait {{seconds}} seconds');
+      sdk.pluginMessage('auth.wait', 'Wait {{seconds}} seconds');
+    `,
+    );
+    await expect(
+      buildRegistry(path.join(root, "plugins"), "https://files.example.com"),
+    ).resolves.toMatchObject({ version: 1 });
+    await expect(stagePluginLocales(plugin, path.join(root, "staging"))).resolves.toBeUndefined();
+    await writeFile(
+      path.join(plugin, "translations/en.json"),
+      JSON.stringify({ "auth.wait": "Wait {{minutes}} minutes" }),
+    );
+    await expect(
+      buildRegistry(path.join(root, "plugins"), "https://files.example.com"),
+    ).rejects.toThrow("parameters differ");
+  });
 });

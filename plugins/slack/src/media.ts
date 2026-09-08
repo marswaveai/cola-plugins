@@ -18,8 +18,7 @@ type SlackDownloadOptions = {
 
 /**
  * Download a Slack-hosted file to a temp path. Slack private URLs require the
- * bot token as a Bearer header; an HTML response means auth/scope problems
- * (Slack serves a login page instead of an error).
+ * bot token as a Bearer header. Unexpected HTML can be a login page.
  */
 export async function downloadSlackFile(
   file: SlackFile,
@@ -51,8 +50,15 @@ export async function downloadSlackFile(
       logger.warn(`Failed to download Slack file ${file.id}: HTTP ${response.status}`);
       return undefined;
     }
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("text/html")) {
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    const attachment = /^attachment(?:;|$)/i.test(
+      response.headers.get("content-disposition")?.trim() ?? "",
+    );
+    const declaredHtml =
+      file.mimetype?.split(";")[0].trim().toLowerCase() === "text/html" || file.filetype === "html";
+    const loginPage =
+      response.url && /\/(?:signin|sign_in|login)(?:\/|$)/i.test(new URL(response.url).pathname);
+    if (contentType.includes("text/html") && (loginPage || (!attachment && !declaredHtml))) {
       logger.warn(
         `Slack returned HTML for file ${file.id}; bot token likely lacks files:read scope`,
       );
@@ -130,5 +136,10 @@ export async function uploadSlackFile(
 
 export function sanitizeFileName(name: string): string {
   const base = path.basename(name).replace(/[^\w.()\- ]+/g, "_");
-  return base || "file";
+  // Sanitization is ASCII-only; reserve 37 bytes for the UUID and separator.
+  const maxBytes = 255 - 37;
+  if (base.length <= maxBytes) return base || "file";
+  const extension = path.extname(base);
+  const suffix = extension.slice(0, 32);
+  return base.slice(0, Math.min(base.length - extension.length, maxBytes - suffix.length)) + suffix;
 }

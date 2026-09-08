@@ -34,8 +34,21 @@ export async function validatePluginMessageSources(
           ts.ScriptTarget.Latest,
           true,
         );
-        const factories = new Set<string>();
-        const namespaces = new Set<string>();
+        const options: ts.CompilerOptions = {
+          noResolve: true,
+          noLib: true,
+          types: [],
+          allowJs: true,
+        };
+        const host = ts.createCompilerHost(options);
+        host.getSourceFile = (name) =>
+          path.resolve(name) === path.resolve(filename) ? source : undefined;
+        host.fileExists = (name) => path.resolve(name) === path.resolve(filename);
+        host.readFile = (name) =>
+          path.resolve(name) === path.resolve(filename) ? source.text : undefined;
+        const checker = ts.createProgram([filename], options, host).getTypeChecker();
+        const factories = new Set<ts.Symbol>();
+        const namespaces = new Set<ts.Symbol>();
         for (const statement of source.statements) {
           if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
             continue;
@@ -48,20 +61,27 @@ export async function validatePluginMessageSources(
           const bindings = statement.importClause?.namedBindings;
           if (bindings && ts.isNamedImports(bindings)) {
             for (const binding of bindings.elements) {
-              if ((binding.propertyName ?? binding.name).text === "pluginMessage")
-                factories.add(binding.name.text);
+              if ((binding.propertyName ?? binding.name).text === "pluginMessage") {
+                const symbol = checker.getSymbolAtLocation(binding.name);
+                if (symbol) factories.add(symbol);
+              }
             }
-          } else if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings.name.text);
+          } else if (bindings && ts.isNamespaceImport(bindings)) {
+            const symbol = checker.getSymbolAtLocation(bindings.name);
+            if (symbol) namespaces.add(symbol);
+          }
         }
         function visit(node: ts.Node) {
           if (ts.isCallExpression(node)) {
             const callee = node.expression;
-            const isFactory = ts.isIdentifier(callee)
-              ? factories.has(callee.text)
-              : ts.isPropertyAccessExpression(callee) &&
-                ts.isIdentifier(callee.expression) &&
-                namespaces.has(callee.expression.text) &&
-                callee.name.text === "pluginMessage";
+            const target = ts.isIdentifier(callee)
+              ? callee
+              : ts.isPropertyAccessExpression(callee) && callee.name.text === "pluginMessage"
+                ? callee.expression
+                : undefined;
+            const symbol = target && checker.getSymbolAtLocation(target);
+            const isFactory =
+              symbol && (ts.isIdentifier(callee) ? factories.has(symbol) : namespaces.has(symbol));
             if (isFactory) {
               const [key, fallback] = node.arguments;
               const location = `${filename}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1}`;

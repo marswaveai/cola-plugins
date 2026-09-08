@@ -1,6 +1,7 @@
 import { pluginMessage as m } from "@marswave/cola-plugin-sdk";
 import { SocketModeClient } from "@slack/socket-mode";
 import { WebClient } from "@slack/web-api";
+import { rm } from "node:fs/promises";
 import type { ChannelSender, ChannelStatusResult, GatewayContext } from "@marswave/cola-plugin-sdk";
 import { isSlackConfigured, readSlackConfig, type SlackConfig } from "./config.js";
 import { downloadSlackFile } from "./media.js";
@@ -55,6 +56,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
   ctx.state.configured = isSlackConfigured(config);
   ctx.state.allowedIds = [...config.allowedIds];
 
+  if (ctx.abortSignal.aborted) return;
   if (!ctx.state.configured) {
     ctx.logger.warn("Slack bot token and app token are required");
     return;
@@ -63,6 +65,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
   try {
     const web = new WebClient(config.botToken);
     const auth = await web.auth.test();
+    if (ctx.abortSignal.aborted) return;
     ctx.state.web = web;
     ctx.state.botUserId = typeof auth.user_id === "string" ? auth.user_id : undefined;
     ctx.state.botName = typeof auth.user === "string" ? auth.user : undefined;
@@ -77,6 +80,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
 
     const handle = async ({ event, ack }: SlackEventArgs) => {
       await ack();
+      if (ctx.abortSignal.aborted) return;
       try {
         await handleSlackEvent(event, ctx, config, dedup, senderCache);
       } catch (err) {
@@ -90,6 +94,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
     socket.on("app_mention", handle);
 
     socket.on("connected", () => {
+      if (ctx.abortSignal.aborted) return;
       ctx.state.connected = true;
       ctx.state.lastError = undefined;
     });
@@ -101,9 +106,22 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
       ctx.logger.warn("Slack socket error", error);
     });
 
-    ctx.abortSignal.addEventListener("abort", () => void socket.disconnect(), { once: true });
+    ctx.abortSignal.addEventListener(
+      "abort",
+      () => {
+        ctx.state.connected = false;
+        void socket
+          .disconnect()
+          .catch((error) => ctx.logger.warn("Failed to disconnect Slack socket", error));
+      },
+      { once: true },
+    );
 
     await socket.start();
+    if (ctx.abortSignal.aborted) {
+      await socket.disconnect();
+      return;
+    }
     ctx.state.connected = true;
     ctx.state.lastError = undefined;
     ctx.logger.info(
@@ -111,6 +129,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
     );
   } catch (err) {
     ctx.state.connected = false;
+    if (ctx.abortSignal.aborted) return;
     ctx.state.lastError = errorMessage(err);
     ctx.logger.warn("Failed to start Slack gateway", err);
     throw err;
@@ -195,37 +214,54 @@ async function handleSlackEvent(
   ctx.state.lastEventAt = Date.now();
 
   const attachments: string[] = [];
-  for (const file of event.files ?? []) {
+  let delivered = false;
+  try {
+    for (const file of event.files ?? []) {
+      if (ctx.abortSignal.aborted) return;
+      const filePath = await downloadSlackFile(file, config.botToken, ctx.logger, {
+        signal: ctx.abortSignal,
+      });
+      if (filePath) attachments.push(filePath);
+    }
     if (ctx.abortSignal.aborted) return;
-    const filePath = await downloadSlackFile(file, config.botToken, ctx.logger, {
-      signal: ctx.abortSignal,
+
+    // The configured allowlist is this channel's authorization gate, so bind the
+    // sender to the primary Cola user on first contact. Without a binding the host
+    // drops every message as an "unbound sender" and the bot never replies.
+    if (!(await ctx.runtime.identity.resolve(parsed.senderId))) {
+      await ctx.runtime.identity.bind(parsed.senderId);
+      ctx.logger.info(`Bound Slack sender ${parsed.senderId} from allowed ${event.channel}`);
+    }
+
+    const sender = await resolveSender(parsed.senderId, ctx, senderCache);
+    if (ctx.abortSignal.aborted) return;
+    await ctx.deliver({
+      sessionId: parsed.sessionId,
+      sender,
+      conversation: parsed.conversation,
+      mentionedBot: parsed.mentionedBot,
+      deliveryContext: {
+        to: parsed.deliveryTo,
+        accountId,
+        threadId: parsed.threadId,
+        messageId: parsed.messageId,
+      },
+      message: parsed.text,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
-    if (filePath) attachments.push(filePath);
+    delivered = true;
+  } finally {
+    // The host only receives ownership of completed downloads after delivery.
+    if (!delivered) {
+      await Promise.all(
+        attachments.map((filePath) =>
+          rm(filePath, { force: true }).catch((error) => {
+            ctx.logger.warn("Failed to remove an undelivered Slack attachment", error);
+          }),
+        ),
+      );
+    }
   }
-  if (ctx.abortSignal.aborted) return;
-
-  // The configured allowlist is this channel's authorization gate, so bind the
-  // sender to the primary Cola user on first contact. Without a binding the host
-  // drops every message as an "unbound sender" and the bot never replies.
-  if (!(await ctx.runtime.identity.resolve(parsed.senderId))) {
-    await ctx.runtime.identity.bind(parsed.senderId);
-    ctx.logger.info(`Bound Slack sender ${parsed.senderId} from allowed ${event.channel}`);
-  }
-
-  await ctx.deliver({
-    sessionId: parsed.sessionId,
-    sender: await resolveSender(parsed.senderId, ctx, senderCache),
-    conversation: parsed.conversation,
-    mentionedBot: parsed.mentionedBot,
-    deliveryContext: {
-      to: parsed.deliveryTo,
-      accountId,
-      threadId: parsed.threadId,
-      messageId: parsed.messageId,
-    },
-    message: parsed.text,
-    attachments: attachments.length > 0 ? attachments : undefined,
-  });
 }
 
 async function resolveSender(

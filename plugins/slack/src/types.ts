@@ -10,6 +10,8 @@ export type SlackFile = {
   name?: string;
   title?: string;
   size?: number;
+  mimetype?: string;
+  filetype?: string;
   url_private?: string;
   url_private_download?: string;
 };

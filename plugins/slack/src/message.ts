@@ -55,11 +55,11 @@ export function parseSlackMessage(
   // Channel messages always reply in the message's thread (the top-level
   // message starts one); DMs only thread when the user already did.
   const threadId = isDm ? event.thread_ts : (event.thread_ts ?? event.ts);
-  const threadSuffix = !isDm && threadId ? ["thread", threadId] : [];
+  const threadSuffix = threadId ? ["thread", threadId] : [];
 
   return {
     sessionId: isDm
-      ? ["chat", accountId, channelId, "sender", senderId]
+      ? ["chat", accountId, channelId, "sender", senderId, ...threadSuffix]
       : ["chat", accountId, channelId, ...threadSuffix],
     senderId,
     conversation,

@@ -1,8 +1,16 @@
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { resolvePluginText } from "@marswave/cola-plugin-sdk";
 import zhCN from "../locales/zh-CN.json";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GatewayContext } from "@marswave/cola-plugin-sdk";
-import { getGatewayStatus, startGateway, type SlackGatewayState } from "../src/gateway.js";
+import {
+  getGatewayStatus,
+  startGateway,
+  stopGateway,
+  type SlackGatewayState,
+} from "../src/gateway.js";
 import slack from "../src/index.js";
 import type { SlackMessageEvent } from "../src/types.js";
 
@@ -31,9 +39,19 @@ vi.mock("@slack/socket-mode", () => ({
   })),
 }));
 
-beforeEach(() => {
+let temporary: string;
+beforeEach(async () => {
+  temporary = await mkdtemp(path.join(os.tmpdir(), "cola-slack-gateway-test-"));
+  vi.spyOn(os, "tmpdir").mockReturnValue(temporary);
   for (const mock of Object.values(slackMocks)) mock.mockReset();
+  slackMocks.socketDisconnect.mockResolvedValue(undefined);
   slackMocks.authTest.mockResolvedValue({ user_id: "UBOT", user: "cola", team_id: "T123" });
+});
+
+afterEach(async () => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  await rm(temporary, { recursive: true, force: true });
 });
 
 async function receive(event: SlackMessageEvent, type = "message") {
@@ -95,13 +113,106 @@ describe("slack gateway startup", () => {
     expect(slackMocks.socketStart).not.toHaveBeenCalled();
     expect(getGatewayStatus(ctx)).toMatchObject({ connected: false, configured: false });
   });
+  it("does not authenticate or connect when already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const ctx = makeGatewayContext("U123", controller.signal);
+    await startGateway(ctx);
+    expect(slackMocks.authTest).not.toHaveBeenCalled();
+    expect(slackMocks.socketStart).not.toHaveBeenCalled();
+    expect(ctx.state.connected).toBe(false);
+  });
+
+  it("does not resume startup after shutdown while authentication is pending", async () => {
+    let finishAuth!: (value: unknown) => void;
+    slackMocks.authTest.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishAuth = resolve;
+      }),
+    );
+    const controller = new AbortController();
+    const ctx = makeGatewayContext("U123", controller.signal);
+    const startup = startGateway(ctx);
+    controller.abort();
+    await stopGateway(ctx);
+    finishAuth({ user_id: "UBOT", team_id: "T123" });
+    await startup;
+    expect(slackMocks.socketStart).not.toHaveBeenCalled();
+    expect(ctx.state.socket).toBeUndefined();
+    expect(ctx.state.connected).toBe(false);
+  });
+
+  it("disconnects and ignores late connected events when startup is cancelled", async () => {
+    const controller = new AbortController();
+    const ctx = makeGatewayContext("U123", controller.signal);
+    slackMocks.socketStart.mockImplementationOnce(async () => {
+      controller.abort();
+      slackMocks.socketOn.mock.calls.find(([name]) => name === "connected")![1]();
+    });
+    await startGateway(ctx);
+    expect(slackMocks.socketDisconnect).toHaveBeenCalled();
+    expect(ctx.state.connected).toBe(false);
+  });
+
+  it.each(["abort-second", "identity-error", "deliver-error", "abort-before-delivery", "success"])(
+    "handles attachment ownership on %s",
+    async (outcome) => {
+      const controller = new AbortController();
+      const ctx = makeGatewayContext("U123", controller.signal);
+      await startGateway(ctx);
+      let downloads = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          if (++downloads === 2) {
+            controller.abort();
+            throw new DOMException("Stopped", "AbortError");
+          }
+          return new Response("downloaded attachment");
+        }),
+      );
+      if (outcome === "identity-error")
+        vi.mocked(ctx.runtime.identity.resolve).mockRejectedValueOnce(new Error("identity failed"));
+      if (outcome === "deliver-error")
+        vi.mocked(ctx.deliver).mockRejectedValueOnce(new Error("delivery failed"));
+      if (outcome === "abort-before-delivery")
+        slackMocks.userInfo.mockImplementationOnce(async () => {
+          controller.abort();
+          return {};
+        });
+      const files = [{ id: "F1", name: "first.txt", url_private: "https://slack.example/first" }];
+      if (outcome === "abort-second")
+        files.push({ id: "F2", name: "second.txt", url_private: "https://slack.example/second" });
+      await receive({
+        channel: "D123",
+        channel_type: "im",
+        ts: "1",
+        user: "U123",
+        text: "files",
+        files,
+      });
+      const remaining = await readdir(path.join(temporary, "cola-slack"));
+      if (outcome === "success") {
+        expect(ctx.deliver).toHaveBeenCalledOnce();
+        expect(remaining).toHaveLength(1);
+        const delivered = vi.mocked(ctx.deliver).mock.calls[0][0];
+        expect(await readFile(delivered.attachments![0], "utf8")).toBe("downloaded attachment");
+      } else {
+        expect(remaining).toEqual([]);
+        if (outcome !== "deliver-error") expect(ctx.deliver).not.toHaveBeenCalled();
+      }
+    },
+  );
 });
 
-function makeGatewayContext(allowedIds = "C123"): GatewayContext<SlackGatewayState> {
+function makeGatewayContext(
+  allowedIds = "C123",
+  signal = new AbortController().signal,
+): GatewayContext<SlackGatewayState> {
   return {
     config: { botToken: "xoxb-token", appToken: "xapp-token", allowedIds },
     state: {},
-    abortSignal: new AbortController().signal,
+    abortSignal: signal,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     runtime: {
       identity: { resolve: vi.fn(), bind: vi.fn(), unbind: vi.fn() },

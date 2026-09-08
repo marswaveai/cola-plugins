@@ -157,4 +157,83 @@ describe("slack media downloads", () => {
     expect(cancel).toHaveBeenCalledOnce();
     expect(await downloadedFiles()).toEqual([]);
   });
+  it.each([219, 255, 400])(
+    "downloads a file with a %i-byte source name and keeps its extension",
+    async (length) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("file contents")),
+      );
+      const result = await downloadSlackFile(
+        { ...file, name: "a".repeat(length - 4) + ".txt" },
+        "token",
+        logger,
+      );
+      expect(result).toBeDefined();
+      expect(Buffer.byteLength(path.basename(result!))).toBeLessThanOrEqual(255);
+      expect(path.extname(result!)).toBe(".txt");
+      expect(await readFile(result!, "utf8")).toBe("file contents");
+    },
+  );
+
+  it.each(["disposition", "mimetype", "filetype"])(
+    "accepts HTML identified by %s",
+    async (evidence) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response("<html>report</html>", {
+              headers: {
+                "content-type": "text/html; charset=utf-8",
+                ...(evidence === "disposition"
+                  ? { "content-disposition": 'attachment; filename="report.html"' }
+                  : {}),
+              },
+            }),
+        ),
+      );
+      const result = await downloadSlackFile(
+        {
+          ...file,
+          name: "report.html",
+          ...(evidence === "mimetype" ? { mimetype: "text/html" } : {}),
+          ...(evidence === "filetype" ? { filetype: "html" } : {}),
+        },
+        "token",
+        logger,
+      );
+      expect(await readFile(result!, "utf8")).toBe("<html>report</html>");
+    },
+  );
+
+  it.each(["https://slack.com/signin", "https://example.slack.com/login"])(
+    "rejects a login redirect to %s even for a declared HTML file",
+    async (url) => {
+      const response = new Response("<html>Sign in</html>", {
+        headers: { "content-type": "text/html" },
+      });
+      Object.defineProperty(response, "url", { value: url });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => response),
+      );
+      expect(
+        await downloadSlackFile({ ...file, mimetype: "text/html" }, "token", logger),
+      ).toBeUndefined();
+      expect(await downloadedFiles()).toEqual([]);
+    },
+  );
+
+  it("rejects unexpected HTML without file metadata or an attachment disposition", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("<html>Sign in</html>", { headers: { "content-type": "text/html" } }),
+      ),
+    );
+    expect(await downloadSlackFile(file, "token", logger)).toBeUndefined();
+    expect(await downloadedFiles()).toEqual([]);
+  });
 });
