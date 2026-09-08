@@ -149,8 +149,14 @@ Manifest 不能替你取回 token。创建 App 后仍需：
 
 最简单的方式是让对方先触发一次。未授信的用户私聊机器人、或在频道里 @机器人时，插件会
 回复一段提示，里面带好对应的用户 ID 和频道 ID，复制填进 `allowedIds` 即可。
+首次配置可以先留空 `allowedIds` 并保存两个令牌；插件会连接 Slack，但只回复 ID 配置提示，
+不会下载附件或将消息交给 Cola。加入白名单后才会处理消息。
 
 也可以在 Slack 客户端里：点用户头像 → `Copy member ID`；或在频道详情底部查看 Channel ID。
+
+## 附件下载
+
+入站附件每个最多 100 MiB，单次下载最多 60 秒。超限、超时或网关停止时会取消下载并删除未完成的文件。
 
 ## 流式草稿
 
@@ -173,13 +179,13 @@ Manifest 不能替你取回 token。创建 App 后仍需：
 
 ## 配置字段
 
-| 字段                | 必需 | 默认值  | 说明                                                     |
-| ------------------- | ---- | ------- | -------------------------------------------------------- |
-| `botToken`          | 是   |         | Bot User OAuth Token，`xoxb-` 开头。请作为 secret 保存。 |
-| `appToken`          | 是   |         | App-level token，`xapp-` 开头，需 `connections:write`。  |
-| `allowedIds`        | 是   |         | 逗号分隔的用户 ID（私聊）和频道 ID（频道）白名单。       |
-| `ignoreBotMessages` | 否   | `true`  | 是否忽略其他机器人/自己发的消息。                        |
-| `unfurlLinks`       | 否   | `false` | 发送消息时是否展开链接和媒体预览。                       |
+| 字段                | 必需 | 默认值  | 说明                                                                       |
+| ------------------- | ---- | ------- | -------------------------------------------------------------------------- |
+| `botToken`          | 是   |         | Bot User OAuth Token，`xoxb-` 开头。请作为 secret 保存。                   |
+| `appToken`          | 是   |         | App-level token，`xapp-` 开头，需 `connections:write`。                    |
+| `allowedIds`        | 否   |         | 逗号分隔的用户 ID（私聊）和频道 ID（频道）白名单；留空仅提供 ID 配置提示。 |
+| `ignoreBotMessages` | 否   | `true`  | 是否忽略其他机器人/自己发的消息。                                          |
+| `unfurlLinks`       | 否   | `false` | 发送消息时是否展开链接和媒体预览。                                         |
 
 配置 UI 只暴露 `botToken`、`appToken`、`allowedIds`。`ignoreBotMessages` 与 `unfurlLinks`
 保留默认值，需要时可在 `channels.json` 里设置。

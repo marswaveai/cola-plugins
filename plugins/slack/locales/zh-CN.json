@@ -27,8 +27,8 @@
   "config.appToken": "应用级令牌",
   "config.appTokenHelp": "具有 connections:write 权限的应用级令牌（Socket Mode）。",
   "config.allowedIds": "允许的 ID",
-  "config.slackHelp": "插件接受的 Slack 用户 ID（私信）和频道 ID，以英文逗号分隔。",
-  "config.requiredSlack": "请填写机器人令牌、应用令牌和允许的 ID。",
+  "config.slackHelp": "用逗号分隔 Slack 用户 ID（私聊）和频道 ID。留空可先连接并获取 ID 配置提示，消息不会传递给 Cola。",
+  "config.requiredSlack": "需要填写机器人令牌和应用令牌。",
   "label": "Slack",
   "description": "在Slack中与 Cola 对话",
   "slack.access": "尚未配置 Slack 访问权限。\n用户 ID：{{user}}\n聊天 ID：{{chat}}"

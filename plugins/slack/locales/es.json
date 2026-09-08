@@ -27,8 +27,8 @@
   "config.appToken": "Token de la aplicación",
   "config.appTokenHelp": "Token de aplicación con el permiso connections:write (Socket Mode).",
   "config.allowedIds": "ID permitidos",
-  "config.slackHelp": "ID de usuarios (mensajes directos) y canales de Slack permitidos, separados por comas.",
-  "config.requiredSlack": "Se requieren los tokens del bot y de la aplicación, y los ID permitidos.",
+  "config.slackHelp": "IDs de usuarios de Slack (mensajes directos) y canales, separados por comas. Déjalo vacío para conectarte y recibir instrucciones para obtener los IDs sin enviar mensajes a Cola.",
+  "config.requiredSlack": "Se requieren el token del bot y el token de la aplicación.",
   "label": "Slack",
   "description": "Chatea con Cola en Slack",
   "slack.access": "El acceso a Slack no está configurado.\nID de usuario: {{user}}\nID de chat: {{chat}}"

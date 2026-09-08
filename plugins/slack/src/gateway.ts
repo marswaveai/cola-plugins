@@ -56,7 +56,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
   ctx.state.allowedIds = [...config.allowedIds];
 
   if (!ctx.state.configured) {
-    ctx.logger.warn("Slack bot token, app token, and allowed IDs are required");
+    ctx.logger.warn("Slack bot token and app token are required");
     return;
   }
 
@@ -136,7 +136,7 @@ export function getGatewayStatus(ctx: GatewayContext<SlackGatewayState>): Channe
     return {
       connected: false,
       configured: false,
-      message: m("config.requiredSlack", "Bot token, app token, and allowed IDs are required."),
+      message: m("config.requiredSlack", "Bot token and app token are required."),
     };
   }
   if (!ctx.state.connected) {
@@ -196,9 +196,13 @@ async function handleSlackEvent(
 
   const attachments: string[] = [];
   for (const file of event.files ?? []) {
-    const filePath = await downloadSlackFile(file, config.botToken, ctx.logger);
+    if (ctx.abortSignal.aborted) return;
+    const filePath = await downloadSlackFile(file, config.botToken, ctx.logger, {
+      signal: ctx.abortSignal,
+    });
     if (filePath) attachments.push(filePath);
   }
+  if (ctx.abortSignal.aborted) return;
 
   // The configured allowlist is this channel's authorization gate, so bind the
   // sender to the primary Cola user on first contact. Without a binding the host

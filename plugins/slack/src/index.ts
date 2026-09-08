@@ -101,11 +101,10 @@ export default defineChannel<SlackGatewayState>({
           key: "allowedIds",
           label: m("config.allowedIds", "Allowed IDs"),
           type: "text",
-          required: true,
           placeholder: "U0123ABC,C0456DEF",
           description: m(
             "config.slackHelp",
-            "Comma-separated Slack user IDs (DMs) and channel IDs accepted by the plugin.",
+            "Comma-separated Slack user IDs (DMs) and channel IDs. Leave empty to connect and receive ID setup hints without delivering messages to Cola.",
           ),
         },
         // Only the tokens and allowlist are exposed in the config UI. The

@@ -17,7 +17,7 @@ export function readSlackConfig(raw: Readonly<Record<string, unknown>>): SlackCo
 }
 
 export function isSlackConfigured(config: SlackConfig): boolean {
-  return config.botToken.length > 0 && config.appToken.length > 0 && config.allowedIds.size > 0;
+  return config.botToken.length > 0 && config.appToken.length > 0;
 }
 
 export function redactToken(token: string): string {

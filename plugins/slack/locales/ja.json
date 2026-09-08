@@ -27,8 +27,8 @@
   "config.appToken": "アプリレベルトークン",
   "config.appTokenHelp": "connections:write 権限を持つアプリレベルトークン（Socket Mode）。",
   "config.allowedIds": "許可する ID",
-  "config.slackHelp": "許可する Slack ユーザー ID（DM）とチャンネル ID をカンマで区切って入力してください。",
-  "config.requiredSlack": "ボットトークン、アプリトークン、許可する ID が必要です。",
+  "config.slackHelp": "Slack ユーザー ID（DM）とチャンネル ID をカンマ区切りで指定します。空欄でも接続して ID の設定案内を受け取れますが、メッセージは Cola に送信されません。",
+  "config.requiredSlack": "Bot トークンとアプリトークンが必要です。",
   "label": "Slack",
   "description": "Slack で Cola と会話",
   "slack.access": "Slack の利用が未設定です。\nユーザー ID：{{user}}\nチャット ID：{{chat}}"

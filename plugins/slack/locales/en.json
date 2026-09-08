@@ -27,8 +27,8 @@
   "config.appToken": "App-level token",
   "config.appTokenHelp": "App-level token with the connections:write scope (Socket Mode).",
   "config.allowedIds": "Allowed IDs",
-  "config.slackHelp": "Comma-separated Slack user IDs (DMs) and channel IDs accepted by the plugin.",
-  "config.requiredSlack": "Bot token, app token, and allowed IDs are required.",
+  "config.slackHelp": "Comma-separated Slack user IDs (DMs) and channel IDs. Leave empty to connect and receive ID setup hints without delivering messages to Cola.",
+  "config.requiredSlack": "Bot token and app token are required.",
   "label": "Slack",
   "description": "Chat with Cola in Slack",
   "slack.access": "Slack access is not configured.\nUser ID: {{user}}\nChat ID: {{chat}}"

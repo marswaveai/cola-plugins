@@ -1,12 +1,20 @@
-import fs from "fs";
+import { randomUUID } from "node:crypto";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, rm } from "node:fs/promises";
 import os from "os";
 import path from "path";
-import { Readable } from "stream";
+import { Readable, Transform } from "stream";
 import { pipeline } from "stream/promises";
 import type { ReadableStream as NodeReadableStream } from "stream/web";
 import type { WebClient } from "@slack/web-api";
 import type { PluginLogger } from "@marswave/cola-plugin-sdk";
 import type { SlackFile } from "./types.js";
+
+type SlackDownloadOptions = {
+  maxBytes?: number;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+};
 
 /**
  * Download a Slack-hosted file to a temp path. Slack private URLs require the
@@ -17,6 +25,7 @@ export async function downloadSlackFile(
   file: SlackFile,
   botToken: string,
   logger: PluginLogger,
+  options: SlackDownloadOptions = {},
 ): Promise<string | undefined> {
   const url = file.url_private_download ?? file.url_private;
   if (!url) {
@@ -24,10 +33,19 @@ export async function downloadSlackFile(
     return undefined;
   }
 
+  const maxBytes = options.maxBytes ?? 100 * 1024 * 1024;
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? 60_000);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+  let response: Response | undefined;
   let tmpPath: string | undefined;
   try {
-    const response = await fetch(url, {
+    signal.throwIfAborted();
+    if (file.size !== undefined && file.size > maxBytes) {
+      throw new Error(`File exceeds the ${maxBytes} byte download limit`);
+    }
+    response = await fetch(url, {
       headers: { Authorization: `Bearer ${botToken}` },
+      signal,
     });
     if (!response.ok) {
       logger.warn(`Failed to download Slack file ${file.id}: HTTP ${response.status}`);
@@ -41,23 +59,38 @@ export async function downloadSlackFile(
       return undefined;
     }
 
-    const tmpDir = path.join(os.tmpdir(), "cola-slack");
-    fs.mkdirSync(tmpDir, { recursive: true });
-    const safeName = sanitizeFileName(file.name ?? file.title ?? file.id);
-    tmpPath = path.join(tmpDir, `${Date.now()}-${safeName}`);
+    if (Number(response.headers.get("content-length")) > maxBytes) {
+      throw new Error(`File exceeds the ${maxBytes} byte download limit`);
+    }
     if (!response.body) {
       logger.warn(`Slack file ${file.id} has no response body`);
       return undefined;
     }
+    const tmpDir = path.join(os.tmpdir(), "cola-slack");
+    await mkdir(tmpDir, { recursive: true });
+    const safeName = sanitizeFileName(file.name ?? file.title ?? file.id);
+    tmpPath = path.join(tmpDir, `${randomUUID()}-${safeName}`);
+    let downloadedBytes = 0;
     await pipeline(
       Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
-      fs.createWriteStream(tmpPath),
+      new Transform({
+        transform(chunk: Buffer, _encoding, callback) {
+          downloadedBytes += chunk.length;
+          if (downloadedBytes > maxBytes) {
+            callback(new Error(`File exceeds the ${maxBytes} byte download limit`));
+          } else {
+            callback(null, chunk);
+          }
+        },
+      }),
+      createWriteStream(tmpPath),
+      { signal },
     );
     return tmpPath;
   } catch (err) {
     if (tmpPath) {
       try {
-        fs.rmSync(tmpPath, { force: true });
+        await rm(tmpPath, { force: true });
       } catch {
         // Best effort cleanup for partial downloads.
       }
@@ -66,6 +99,10 @@ export async function downloadSlackFile(
       `Failed to download Slack file ${file.id}: ${err instanceof Error ? err.message : String(err)}`,
     );
     return undefined;
+  } finally {
+    if (response?.body && !response.body.locked) {
+      await response.body.cancel().catch(() => {});
+    }
   }
 }
 
@@ -80,7 +117,7 @@ export async function uploadSlackFile(
 ): Promise<void> {
   const base = {
     channel_id: opts.channelId,
-    file: fs.createReadStream(opts.filePath),
+    file: createReadStream(opts.filePath),
     filename: path.basename(opts.filePath),
     ...(opts.comment ? { initial_comment: opts.comment } : {}),
   };

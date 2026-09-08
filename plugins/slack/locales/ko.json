@@ -27,8 +27,8 @@
   "config.appToken": "앱 수준 토큰",
   "config.appTokenHelp": "connections:write 권한이 있는 앱 수준 토큰 (Socket Mode).",
   "config.allowedIds": "허용된 ID",
-  "config.slackHelp": "허용할 Slack 사용자 ID (DM)와 채널 ID를 쉼표로 구분하여 입력하세요.",
-  "config.requiredSlack": "봇 토큰, 앱 토큰 및 허용된 ID가 필요합니다.",
+  "config.slackHelp": "Slack 사용자 ID(DM)와 채널 ID를 쉼표로 구분합니다. 비워 두면 연결하여 ID 설정 안내를 받을 수 있지만 메시지는 Cola로 전달되지 않습니다.",
+  "config.requiredSlack": "봇 토큰과 앱 토큰이 필요합니다.",
   "label": "Slack",
   "description": "Slack에서 Cola와 대화하세요",
   "slack.access": "Slack 접근 권한이 설정되지 않았습니다.\n사용자 ID: {{user}}\n채팅 ID: {{chat}}"
