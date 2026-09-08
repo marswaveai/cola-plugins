@@ -134,10 +134,27 @@ function consumeMarkdownLink(
   const labelEnd = text.indexOf("](", index + 1);
   if (labelEnd === -1) return null;
   const urlStart = labelEnd + 2;
-  const urlEnd = text.indexOf(")", urlStart);
-  if (urlEnd === -1) return null;
+  let urlEnd = urlStart;
+  let depth = 0;
+  let destination = "";
+  for (; urlEnd < text.length; urlEnd++) {
+    const character = text[urlEnd];
+    // Escaped parentheses are URL characters, not Markdown delimiters. An
+    // escaped backslash must be consumed too so it cannot escape the next ')'.
+    if (character === "\\" && /[\\()]/.test(text[urlEnd + 1] ?? "")) {
+      destination += text[++urlEnd];
+      continue;
+    }
+    if (character === "(") depth++;
+    else if (character === ")") {
+      if (depth === 0) break;
+      depth--;
+    }
+    destination += character;
+  }
+  if (urlEnd === text.length) return null;
 
-  const url = text.slice(urlStart, urlEnd).trim();
+  const url = destination.trim();
   if (!isSafeSlackLink(url)) return null;
 
   return {

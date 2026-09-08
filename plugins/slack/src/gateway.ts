@@ -16,6 +16,7 @@ import type { SlackMessageEvent, SlackUserProfile } from "./types.js";
 
 export type SlackGatewayState = {
   socket?: SocketModeClient;
+  removeAbortListener?: () => void;
   web?: WebClient;
   botUserId?: string;
   botName?: string;
@@ -62,6 +63,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
     return;
   }
 
+  let removeAbortListener: (() => void) | undefined;
   try {
     const web = new WebClient(config.botToken);
     const auth = await web.auth.test();
@@ -106,16 +108,21 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
       ctx.logger.warn("Slack socket error", error);
     });
 
-    ctx.abortSignal.addEventListener(
-      "abort",
-      () => {
-        ctx.state.connected = false;
-        void socket
-          .disconnect()
-          .catch((error) => ctx.logger.warn("Failed to disconnect Slack socket", error));
-      },
-      { once: true },
-    );
+    const onAbort = () => {
+      removeAbortListener?.();
+      ctx.state.connected = false;
+      void socket
+        .disconnect()
+        .catch((error) => ctx.logger.warn("Failed to disconnect Slack socket", error));
+    };
+    removeAbortListener = () => {
+      ctx.abortSignal.removeEventListener("abort", onAbort);
+      if (ctx.state.removeAbortListener === removeAbortListener) {
+        ctx.state.removeAbortListener = undefined;
+      }
+    };
+    ctx.state.removeAbortListener = removeAbortListener;
+    ctx.abortSignal.addEventListener("abort", onAbort, { once: true });
 
     await socket.start();
     if (ctx.abortSignal.aborted) {
@@ -128,6 +135,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
       `Slack gateway connected as @${ctx.state.botName ?? "?"} (${ctx.state.botUserId ?? "?"}) in team ${ctx.state.teamId ?? "?"}`,
     );
   } catch (err) {
+    removeAbortListener?.();
     ctx.state.connected = false;
     if (ctx.abortSignal.aborted) return;
     ctx.state.lastError = errorMessage(err);
@@ -137,6 +145,7 @@ export async function startGateway(ctx: GatewayContext<SlackGatewayState>): Prom
 }
 
 export async function stopGateway(ctx: GatewayContext<SlackGatewayState>): Promise<void> {
+  ctx.state.removeAbortListener?.();
   const socket = ctx.state.socket;
   ctx.state.socket = undefined;
   ctx.state.web = undefined;
@@ -315,6 +324,7 @@ function accessNotConfiguredMessage(event: SlackMessageEvent) {
 }
 
 function resetState(state: SlackGatewayState): void {
+  state.removeAbortListener?.();
   state.socket = undefined;
   state.web = undefined;
   state.botUserId = undefined;

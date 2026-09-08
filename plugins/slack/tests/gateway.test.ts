@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { getEventListeners } from "node:events";
 import os from "node:os";
 import path from "node:path";
 import { resolvePluginText } from "@marswave/cola-plugin-sdk";
@@ -63,6 +64,35 @@ async function receive(event: SlackMessageEvent, type = "message") {
 }
 
 describe("slack gateway startup", () => {
+  it("removes abort listeners on stop and only disconnects the current socket at shutdown", async () => {
+    const controller = new AbortController();
+    const ctx = makeGatewayContext("U123", controller.signal);
+    for (let i = 0; i < 12; i++) {
+      await startGateway(ctx);
+      expect(getEventListeners(controller.signal, "abort")).toHaveLength(1);
+      await stopGateway(ctx);
+      expect(getEventListeners(controller.signal, "abort")).toHaveLength(0);
+    }
+    await startGateway(ctx);
+    slackMocks.socketDisconnect.mockClear();
+    controller.abort();
+    await Promise.resolve();
+    expect(slackMocks.socketDisconnect).toHaveBeenCalledOnce();
+    expect(getEventListeners(controller.signal, "abort")).toHaveLength(0);
+  });
+
+  it("removes the abort listener when connection startup fails", async () => {
+    const controller = new AbortController();
+    const ctx = makeGatewayContext("U123", controller.signal);
+    slackMocks.socketStart.mockRejectedValueOnce(new Error("Connection failed"));
+    await expect(startGateway(ctx)).rejects.toThrow("Connection failed");
+    expect(getEventListeners(controller.signal, "abort")).toHaveLength(0);
+    await startGateway(ctx);
+    expect(getEventListeners(controller.signal, "abort")).toHaveLength(1);
+    await stopGateway(ctx);
+    expect(getEventListeners(controller.signal, "abort")).toHaveLength(0);
+  });
+
   it("records auth failures in gateway status", async () => {
     slackMocks.authTest.mockRejectedValueOnce(new Error("invalid_auth"));
     const ctx = makeGatewayContext();
