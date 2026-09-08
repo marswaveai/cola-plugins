@@ -39,8 +39,7 @@ export async function sendSlackText(ctx: OutboundContext, state: SlackGatewaySta
 }
 
 /**
- * Local mirror of the SDK 0.0.5 DraftContext (OutboundContext & { done }).
- * Replace with the SDK export once @marswave/cola-plugin-sdk >= 0.0.5 lands.
+ * Keep the draft context local until the SDK exports it.
  */
 export type SlackDraftContext = OutboundContext & { done: boolean };
 

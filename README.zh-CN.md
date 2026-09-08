@@ -160,7 +160,7 @@ plugins/{id}/{id}-{version}.tar.gz
 
 ## 插件多语言
 
-SDK 0.1.0 新增插件 i18n。在 `package.json` 的 `cola.channel.i18n` 中注册语言文件：
+SDK 0.0.5 新增插件 i18n。在 `package.json` 的 `cola.channel.i18n` 中注册语言文件：
 
 ```json
 {
@@ -235,6 +235,6 @@ throw new PluginLocalizedError(
 Node 工具可从 `@marswave/cola-plugin-sdk/i18n-files` 导入 `loadPluginTranslations`：
 发布时传 `{ strict: true }`，运行时传 `{ onWarning }` 以保留其他有效语言。
 
-先发布 SDK 0.1.0，再发布依赖它的渠道。`cola.plugin.minColaVersion` 必须设置为首次支持
+先发布 SDK 0.0.5，再发布依赖它的渠道。`cola.plugin.minColaVersion` 必须设置为首次支持
 此功能的 Cola 正式版本。`cola-plugins` 的 `pnpm build:registry` 校验所有已声明的语言
 文件，只把名称和简介翻译放进商店索引；打包时复制全部注册文件，安装后宿主读取完整字典。

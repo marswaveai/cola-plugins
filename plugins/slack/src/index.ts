@@ -19,9 +19,8 @@ import {
 
 let activeState: SlackGatewayState = {};
 
-// sendDraft/draftThrottleMs land in SDK 0.0.5 (streaming draft preview); the
-// widened type lets this compile against 0.0.3 until the SDK bump. Hosts that
-// predate the capability simply never call sendDraft.
+// Keep draft preview fields local until the SDK exposes them.
+// Hosts without draft preview support simply never call sendDraft.
 const outbound: ChannelOutboundAdapter & {
   sendDraft?(ctx: SlackDraftContext): Promise<void>;
   draftThrottleMs?: number;

@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marswave/cola-plugin-sdk": "0.1.0"
+    "@marswave/cola-plugin-sdk": "0.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marswave/cola-plugin-sdk": "0.1.0",
+    "@marswave/cola-plugin-sdk": "0.0.5",
     "@slack/socket-mode": "^2.0.4",
     "@slack/web-api": "^7.9.3"
   },

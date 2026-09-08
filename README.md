@@ -180,7 +180,7 @@ Licensed under the Apache License, Version 2.0. See `LICENSE`.
 
 ## Plugin localization
 
-Plugin i18n is available in SDK 0.1.0. Register locale files in `package.json`:
+Plugin i18n is available in SDK 0.0.5. Register locale files in `package.json`:
 
 ```json
 {
@@ -272,7 +272,7 @@ keep the key and fallback as string literals; put dynamic values in `params`.
 The check supports SDK import aliases and namespace imports without executing
 plugin code. Missing or empty translations remain valid fallbacks.
 
-Publish SDK 0.1.0 before releasing plugins that depend on it, and set
+Publish SDK 0.0.5 before releasing plugins that depend on it, and set
 `cola.plugin.minColaVersion` to the first released Cola version supporting i18n.
 In `cola-plugins`, `pnpm build:registry` validates all declared catalogs and embeds
 only `label`/`description` translations in the store index. Release packaging
