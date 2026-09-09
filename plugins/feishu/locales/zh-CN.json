@@ -23,5 +23,8 @@
   "config.domain": "域名",
   "label": "飞书",
   "description": "在飞书中与 Cola 对话",
-  "channel.groupDisabled": "尚未启用群聊，请私信机器人。"
+  "channel.groupDisabled": "尚未启用群聊，请私信机器人。",
+  "status.connecting": "正在连接…",
+  "status.reconnecting": "连接已断开，正在重连…",
+  "status.failed": "连接失败"
 }

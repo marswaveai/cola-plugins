@@ -23,5 +23,8 @@
   "config.domain": "網域",
   "label": "飛書",
   "description": "在飛書中與 Cola 對話",
-  "channel.groupDisabled": "尚未啟用群聊，請私訊機器人。"
+  "channel.groupDisabled": "尚未啟用群聊，請私訊機器人。",
+  "status.connecting": "正在連線…",
+  "status.reconnecting": "連線已中斷，正在重新連線…",
+  "status.failed": "連線失敗"
 }

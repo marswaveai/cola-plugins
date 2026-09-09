@@ -23,5 +23,8 @@
   "config.domain": "Dominio",
   "label": "Feishu",
   "description": "Chatea con Cola en Feishu",
-  "channel.groupDisabled": "El chat de grupo no está habilitado. Envía un mensaje directo al bot."
+  "channel.groupDisabled": "El chat de grupo no está habilitado. Envía un mensaje directo al bot.",
+  "status.connecting": "Conectando…",
+  "status.reconnecting": "Conexión perdida; reconectando…",
+  "status.failed": "Error de conexión"
 }

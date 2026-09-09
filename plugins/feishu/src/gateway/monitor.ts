@@ -1,6 +1,6 @@
 import type { PluginRuntime } from "@marswave/cola-plugin-sdk";
 import type * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginLogger, DeliverFn } from "@marswave/cola-plugin-sdk";
+import type { ChannelStatusResult, PluginLogger, DeliverFn } from "@marswave/cola-plugin-sdk";
 import type { FeishuAccountConfig } from "../api/types.js";
 import { createLarkClient, createEventDispatcher, fetchBotOpenId } from "../api/client.js";
 import { registerMessageHandler, registerReactionHandler } from "./event-handler.js";
@@ -8,12 +8,14 @@ import { startWSGateway } from "./ws-gateway.js";
 import { MessageDedup } from "./dedup.js";
 import { ChatMap } from "./chat-map.js";
 import { GroupContextTracker } from "./group-context.js";
+import { describeConnectionError } from "./connection-error.js";
 
 export type MonitorHandle = {
   accountId: string;
   client: lark.Client;
   chatMap: ChatMap;
   cleanup: () => void;
+  getStatus: () => ChannelStatusResult;
 };
 
 /**
@@ -30,6 +32,7 @@ export async function startMonitor(opts: {
   groupEnabled: boolean;
 }): Promise<MonitorHandle> {
   const { accountId, config, deliver, logger, abortSignal, groupEnabled } = opts;
+  abortSignal.throwIfAborted();
 
   // Create client and dispatcher
   const client = createLarkClient(accountId, config);
@@ -39,7 +42,15 @@ export async function startMonitor(opts: {
   const groupContext = new GroupContextTracker();
 
   // Bot open_id is required to detect @bot mentions in group chats.
-  const botOpenId = await fetchBotOpenId(client, logger);
+  let botOpenId: string | undefined;
+  let initialError: string | undefined;
+  try {
+    botOpenId = await fetchBotOpenId(client);
+  } catch (err) {
+    initialError = describeConnectionError(err);
+    logger.warn(`feishu[${accountId}]: Failed to fetch bot open_id: ${initialError}`);
+  }
+  abortSignal.throwIfAborted();
 
   const deps = {
     client,
@@ -58,7 +69,7 @@ export async function startMonitor(opts: {
   registerMessageHandler(dispatcher, deps);
   registerReactionHandler(dispatcher, deps);
 
-  const handle = startWSGateway(accountId, config, dispatcher, abortSignal, logger);
+  const handle = startWSGateway(accountId, config, dispatcher, abortSignal, logger, initialError);
 
   logger.info(`feishu[${accountId}]: monitor started (mode=websocket)`);
 
@@ -67,5 +78,6 @@ export async function startMonitor(opts: {
     client,
     chatMap,
     cleanup: handle.cleanup,
+    getStatus: handle.getStatus,
   };
 }

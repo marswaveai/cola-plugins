@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Test plugins
+        run: pnpm test
+
       - name: Validate plugin translations
         run: pnpm build:registry
 
