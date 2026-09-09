@@ -15,13 +15,34 @@ import { startMonitor, type MonitorHandle } from "./gateway/monitor.js";
 import { sendText, sendMedia, sendReaction } from "./outbound/send.js";
 import { createFeishuCommands } from "./commands/feishu.js";
 import { clearClientCache } from "./api/client.js";
+import { describeConnectionError } from "./gateway/connection-error.js";
 
 type FeishuGatewayState = {
   monitors: Map<string, MonitorHandle>;
+  failures: Map<string, string>;
 };
 
 // Module-level monitor registry — populated by gateway.start, read by outbound/tools
 let activeMonitors = new Map<string, MonitorHandle>();
+let activeFailures = new Map<string, string>();
+
+function getAccountStatus(
+  accountId: string,
+  monitors?: Map<string, MonitorHandle>,
+  failures?: Map<string, string>,
+): ChannelStatusResult {
+  const monitor = monitors?.get(accountId);
+  if (monitor) return monitor.getStatus();
+  const details = failures?.get(accountId);
+  return {
+    connected: false,
+    configured: true,
+    message: details
+      ? m("status.failed", "Connection failed")
+      : m("status.disconnected", "Disconnected"),
+    details,
+  };
+}
 
 function trimRecipientPrefix(to: string): string {
   const separator = to.indexOf(":");
@@ -124,7 +145,7 @@ export default defineChannel<FeishuGatewayState>({
 
   auth: createFeishuAuth(),
 
-  commands: createFeishuCommands(() => activeMonitors),
+  commands: createFeishuCommands((id) => getAccountStatus(id, activeMonitors, activeFailures)),
 
   gateway: {
     async start(ctx: GatewayContext<FeishuGatewayState>) {
@@ -134,6 +155,10 @@ export default defineChannel<FeishuGatewayState>({
 
       const monitors = new Map<string, MonitorHandle>();
       ctx.state.monitors = monitors;
+      const failures = new Map<string, string>();
+      ctx.state.failures = failures;
+      activeMonitors = monitors;
+      activeFailures = failures;
 
       // One-time migration: move any legacy authorizedOpenIds into SDK identity
       // bindings so previously-authorized users keep access under the access gate.
@@ -164,14 +189,18 @@ export default defineChannel<FeishuGatewayState>({
             abortSignal: ctx.abortSignal,
             groupEnabled,
           });
+          if (ctx.abortSignal.aborted || ctx.state.monitors !== monitors) {
+            handle.cleanup();
+            break;
+          }
           monitors.set(accountId, handle);
         } catch (err) {
-          ctx.logger.error(`Failed to start monitor for account ${accountId}`, err);
+          if (ctx.abortSignal.aborted || ctx.state.monitors !== monitors) break;
+          const details = describeConnectionError(err);
+          failures.set(accountId, details);
+          ctx.logger.error(`Failed to start monitor for account ${accountId}: ${details}`);
         }
       }
-
-      // Update module-level reference
-      activeMonitors = monitors;
 
       ctx.logger.info(`Feishu gateway started with ${monitors.size} account(s)`);
     },
@@ -185,7 +214,10 @@ export default defineChannel<FeishuGatewayState>({
         handle.cleanup();
       }
       monitors.clear();
+      ctx.state.monitors = new Map();
+      ctx.state.failures?.clear();
       activeMonitors = new Map();
+      activeFailures = new Map();
       clearClientCache();
     },
 
@@ -195,18 +227,32 @@ export default defineChannel<FeishuGatewayState>({
     },
 
     getStatus(ctx: GatewayContext<FeishuGatewayState>): ChannelStatusResult {
-      const monitors = ctx.state.monitors;
-      if (!monitors || monitors.size === 0) {
+      const accounts = parseAccountConfigs(ctx.config as unknown as FeishuPluginConfig);
+      if (accounts.size === 0) {
         return {
           connected: false,
           configured: false,
           message: m("status.noAccounts", "No accounts configured"),
         };
       }
+      const statuses = [...accounts.keys()].map((id) => ({
+        id,
+        status: getAccountStatus(id, ctx.state.monitors, ctx.state.failures),
+      }));
+      const connectedCount = statuses.filter(({ status }) => status.connected).length;
+      const details =
+        statuses
+          .filter(({ status }) => status.details)
+          .map(({ id, status }) => `${id}: ${status.details}`)
+          .join("\n") || undefined;
       return {
-        connected: true,
+        connected: connectedCount > 0,
         configured: true,
-        message: m("status.accounts", "Connected accounts: {{count}}", { count: monitors.size }),
+        message:
+          connectedCount > 0
+            ? m("status.accounts", "Connected accounts: {{count}}", { count: connectedCount })
+            : (statuses.find(({ status }) => status.details) ?? statuses[0]).status.message,
+        details,
       };
     },
   },

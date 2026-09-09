@@ -1,5 +1,4 @@
 import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginLogger } from "@marswave/cola-plugin-sdk";
 import type { FeishuDomain, FeishuAccountConfig } from "./types.js";
 
 function resolveDomain(domain: FeishuDomain | undefined): lark.Domain | string {
@@ -41,7 +40,15 @@ export function createLarkClient(accountId: string, config: FeishuAccountConfig)
   return client;
 }
 
-export function createLarkWSClient(config: FeishuAccountConfig): lark.WSClient {
+type WSLifecycleOptions = Pick<
+  ConstructorParameters<typeof lark.WSClient>[0],
+  "logger" | "onReady" | "onError" | "onReconnecting" | "onReconnected"
+>;
+
+export function createLarkWSClient(
+  config: FeishuAccountConfig,
+  lifecycle: WSLifecycleOptions,
+): lark.WSClient {
   const { appId, appSecret, domain } = config;
   if (!appId || !appSecret) {
     throw new Error("Feishu WSClient requires appId and appSecret");
@@ -52,6 +59,7 @@ export function createLarkWSClient(config: FeishuAccountConfig): lark.WSClient {
     appSecret,
     domain: resolveDomain(domain),
     loggerLevel: lark.LoggerLevel.info,
+    ...lifecycle,
   });
 }
 
@@ -64,22 +72,13 @@ export function createEventDispatcher(config: FeishuAccountConfig): lark.EventDi
 
 /**
  * Fetch the bot's own open_id (used to detect @bot mentions in group chats).
- * Best-effort: returns undefined on failure so group gating degrades gracefully.
  */
-export async function fetchBotOpenId(
-  client: lark.Client,
-  logger: PluginLogger,
-): Promise<string | undefined> {
-  try {
-    const res = (await client.request({
-      method: "GET",
-      url: "/open-apis/bot/v3/info",
-    })) as { bot?: { open_id?: string } };
-    return res?.bot?.open_id;
-  } catch (err) {
-    logger.warn("Failed to fetch Feishu bot open_id (group @mention detection disabled)", err);
-    return undefined;
-  }
+export async function fetchBotOpenId(client: lark.Client): Promise<string | undefined> {
+  const res = (await client.request({
+    method: "GET",
+    url: "/open-apis/bot/v3/info",
+  })) as { bot?: { open_id?: string } };
+  return res?.bot?.open_id;
 }
 
 export function getLarkClient(accountId: string): lark.Client | undefined {

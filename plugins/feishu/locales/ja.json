@@ -23,5 +23,8 @@
   "config.domain": "ドメイン",
   "label": "Feishu",
   "description": "Feishu で Cola と会話",
-  "channel.groupDisabled": "グループチャットは無効です。ボットに直接メッセージを送信してください。"
+  "channel.groupDisabled": "グループチャットは無効です。ボットに直接メッセージを送信してください。",
+  "status.connecting": "接続中…",
+  "status.reconnecting": "接続が切れました。再接続中…",
+  "status.failed": "接続に失敗しました"
 }

@@ -1,10 +1,15 @@
 import { pluginMessage as m, joinPluginText as join } from "@marswave/cola-plugin-sdk";
-import type { PluginText, PluginCommandDefinition } from "@marswave/cola-plugin-sdk";
-import type { MonitorHandle } from "../gateway/monitor.js";
+import type {
+  ChannelStatusResult,
+  PluginText,
+  PluginCommandDefinition,
+} from "@marswave/cola-plugin-sdk";
+import type { FeishuPluginConfig } from "../api/types.js";
+import { parseAccountConfigs } from "../auth/accounts.js";
 import { redactSecret } from "../util/redact.js";
 
 export function createFeishuCommands(
-  getMonitors: () => Map<string, MonitorHandle>,
+  getAccountStatus: (accountId: string) => ChannelStatusResult,
 ): PluginCommandDefinition[] {
   return [
     {
@@ -24,20 +29,25 @@ export function createFeishuCommands(
       ],
       async execute(ctx) {
         const sub = ctx.args.trim() || "status";
-        const monitors = getMonitors();
+        const accounts = parseAccountConfigs(ctx.config as unknown as FeishuPluginConfig);
 
         if (sub === "status") {
-          if (monitors.size === 0) {
+          if (accounts.size === 0) {
             return { reply: m("status.noAccounts", "No accounts configured") };
           }
           const lines: PluginText[] = [
             m("command.statusTitle", "**{{name}} Status**", { name: m("label", "Feishu") }),
             "",
           ];
-          for (const [id] of monitors) {
+          for (const [id] of accounts) {
+            const status = getAccountStatus(id);
             lines.push(
-              m("", "- **{{id}}**: {{status}}", { id, status: m("status.connected", "Connected") }),
+              m("", "- **{{id}}**: {{status}}", {
+                id,
+                status: status.message ?? m("status.disconnected", "Disconnected"),
+              }),
             );
+            if (status.details) lines.push(status.details);
           }
           return { reply: join(lines) };
         }
@@ -57,9 +67,7 @@ export function createFeishuCommands(
                 ? redactSecret(acct.appId)
                 : m("state.missing", "Missing");
             const domain = (acct.domain as string) ?? "feishu";
-            const active = monitors.has(id)
-              ? m("status.connected", "Connected")
-              : m("status.disconnected", "Disconnected");
+            const active = getAccountStatus(id).message ?? m("status.disconnected", "Disconnected");
             lines.push(
               m(
                 "command.accountLine",

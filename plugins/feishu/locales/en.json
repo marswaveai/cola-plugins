@@ -23,5 +23,8 @@
   "config.domain": "Domain",
   "label": "Feishu",
   "description": "Chat with Cola in Feishu",
-  "channel.groupDisabled": "Group chat is not enabled. Please message the bot directly."
+  "channel.groupDisabled": "Group chat is not enabled. Please message the bot directly.",
+  "status.connecting": "Connecting…",
+  "status.reconnecting": "Connection lost; reconnecting…",
+  "status.failed": "Connection failed"
 }
