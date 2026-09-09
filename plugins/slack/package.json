@@ -28,7 +28,7 @@
     "plugin": {
       "id": "slack",
       "entry": "./dist/index.js",
-      "minColaVersion": "1.99.0"
+      "minColaVersion": "1.4.5"
     },
     "channel": {
       "label": "Slack",
