@@ -397,7 +397,7 @@ packages:
     resolution: {integrity: sha512-oO1rCwUXZqKlJdE80VclGmsMKW/yU6BbgKcHAnWR0RzksEder56QWSoH7ckAAmWnw4BY2ATFlRWw5BRLMVYIgA==}
 
   '@marswave/cola-plugin-sdk@0.0.5':
-    resolution: {tarball: https://registry.npmjs.org/@marswave/cola-plugin-sdk/-/cola-plugin-sdk-0.0.5.tgz}
+    resolution: {integrity: sha512-1KVGbtUf4Yj6yK2pn0KsoFiSi5cc53/QUJ+/U1MQpT2zQaXb1KLndJP7VUlp6SlqmnpLjzGok+8CtIxKZQBqbg==}
 
   '@oxfmt/binding-android-arm-eabi@0.42.0':
     resolution: {integrity: sha512-dsqPTYsozeokRjlrt/b4E7Pj0z3eS3Eg74TWQuuKbjY4VttBmA88rB7d50Xrd+TZ986qdXCNeZRPEzZHAe+jow==}
