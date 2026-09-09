@@ -1,3 +1,4 @@
+import { pluginMessage as m, PluginLocalizedError } from "@marswave/cola-plugin-sdk";
 import type { OutboundContext } from "@marswave/cola-plugin-sdk";
 import { TelegramApiClient } from "./api.js";
 import { readTelegramConfig } from "./config.js";
@@ -11,7 +12,7 @@ export async function sendTelegramText(
 ): Promise<void> {
   const config = readTelegramConfig(ctx.config);
   if (!config.botToken) {
-    throw new Error("Telegram bot token is not configured");
+    throw new PluginLocalizedError(m("error.botToken", "Bot token is not configured."));
   }
 
   const client = state.client ?? new TelegramApiClient({ botToken: config.botToken });

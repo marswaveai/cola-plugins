@@ -1,12 +1,10 @@
+import { pluginMessage as m } from "@marswave/cola-plugin-sdk";
 import { createPollLoop } from "@marswave/cola-plugin-sdk";
 import type { ChannelStatusResult, GatewayContext } from "@marswave/cola-plugin-sdk";
 import { TelegramApiClient } from "./api.js";
 import { isTelegramConfigured, readTelegramConfig, type TelegramConfig } from "./config.js";
 import { isFromBot, parseTelegramMessage } from "./message.js";
 import type { TelegramMessage, TelegramUpdate, TelegramUser } from "./types.js";
-
-/** Reply sent to a group @mention/reply while group chat is disabled. */
-const GROUP_DISABLED_NOTICE = "暂不支持群聊";
 
 export type TelegramGatewayState = {
   abortController?: AbortController;
@@ -93,26 +91,27 @@ export function getGatewayStatus(ctx: GatewayContext<TelegramGatewayState>): Cha
     return {
       connected: false,
       configured: false,
-      message: "Bot token and allowed chat IDs are required",
+      message: m("config.requiredTelegram", "Bot token and allowed chat IDs are required."),
     };
   }
   if (!ctx.state.connected) {
     return {
       connected: false,
       configured: true,
-      message: ctx.state.lastError ? `Disconnected: ${ctx.state.lastError}` : "Disconnected",
+      message: m("status.disconnected", "Disconnected"),
+      details: ctx.state.lastError,
     };
   }
 
   const bot = ctx.state.me?.username ? `@${ctx.state.me.username}` : ctx.state.me?.first_name;
-  const allowed =
-    ctx.state.allowedChatIds && ctx.state.allowedChatIds.length > 0
-      ? `; allowed chats=${ctx.state.allowedChatIds.length}`
-      : "";
   return {
     connected: true,
     configured: true,
-    message: `Polling${bot ? ` as ${bot}` : ""}${allowed}`,
+    message: m("status.gateway", "{{mode}} \u00b7 {{bot}} \u00b7 Allowed: {{count}}", {
+      mode: m("status.polling", "Polling"),
+      bot: bot ?? "—",
+      count: ctx.state.allowedChatIds?.length ?? 0,
+    }),
   };
 }
 
@@ -180,7 +179,7 @@ async function sendAccessNotConfiguredReply(
     await client.sendMessage({
       chatId: String(message.chat.id),
       messageThreadId: message.message_thread_id,
-      text: accessNotConfiguredMessage(message),
+      text: await ctx.runtime.i18n!.text(accessNotConfiguredMessage(message)),
     });
   } catch (err) {
     ctx.logger.warn(`Failed to send Telegram access notice for chat ${message.chat.id}`, err);
@@ -199,7 +198,9 @@ async function sendGroupDisabledReply(
     await client.sendMessage({
       chatId: String(message.chat.id),
       messageThreadId: message.message_thread_id,
-      text: GROUP_DISABLED_NOTICE,
+      text: await ctx.runtime.i18n!.text(
+        m("channel.groupDisabled", "Group chat is not enabled. Please message the bot directly."),
+      ),
     });
   } catch (err) {
     ctx.logger.warn(
@@ -227,18 +228,12 @@ function isBotAddressed(message: TelegramMessage, me: TelegramUser | undefined):
   return false;
 }
 
-function accessNotConfiguredMessage(message: NonNullable<TelegramUpdate["message"]>): string {
-  const userId = message.from ? String(message.from.id) : undefined;
-  const chatId = String(message.chat.id);
-  const lines = ["Cola Telegram: access not configured.", ""];
-
-  if (userId) {
-    lines.push("Your Telegram user id:", "```", userId, "```", "");
-  }
-
-  lines.push("Your Telegram chat id:", "```", chatId, "```");
-
-  return lines.join("\n");
+function accessNotConfiguredMessage(message: NonNullable<TelegramUpdate["message"]>) {
+  return m(
+    "telegram.access",
+    "Telegram access is not configured.\nUser ID: {{user}}\nChat ID: {{chat}}",
+    { user: message.from ? String(message.from.id) : "—", chat: String(message.chat.id) },
+  );
 }
 
 function resetState(state: TelegramGatewayState): void {

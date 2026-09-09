@@ -157,3 +157,84 @@ plugins/{id}/{id}-{version}.tar.gz
 ## License
 
 本仓库使用 Apache License, Version 2.0。详见 `LICENSE`。
+
+## 插件多语言
+
+SDK 0.0.5 新增插件 i18n。在 `package.json` 的 `cola.channel.i18n` 中注册语言文件：
+
+```json
+{
+  "cola": {
+    "plugin": { "id": "example", "entry": "./dist/index.js" },
+    "channel": {
+      "label": "Example",
+      "description": "Example messaging channel",
+      "i18n": {
+        "en": "./locales/en.json",
+        "zh-CN": "./locales/zh-CN.json"
+      }
+    }
+  }
+}
+```
+
+语言文件是扁平的 JSON 字符串字典。保留键 `label`、`description` 对应渠道名称和简介，
+也用于尚未安装的商店卡片；其余 key 由插件定义。文件必须位于插件包内，使用不含 `..`
+的相对路径。每个文件最多 1 MiB。
+
+```json
+{
+  "label": "示例",
+  "description": "通过示例渠道与 Cola 对话",
+  "config.token": "机器人令牌",
+  "auth.timeout": "登录在 {{seconds}} 秒后超时，请重试。"
+}
+```
+
+保留 `meta.label`、`meta.description` 原有字符串作为默认文案。
+配置字段的名称、说明、占位提示和选项名称，渠道状态、登录提示、命令说明及参数说明、
+命令回复和 `unauthorizedHint` 均接受 `pluginMessage(key, fallback, params?)`；
+旧插件继续传普通字符串。插件 ID、命令名、配置 key 和选项 value 保持稳定。
+
+```ts
+import { pluginMessage, PluginLocalizedError } from "@marswave/cola-plugin-sdk";
+
+const field = {
+  key: "botToken",
+  type: "password" as const,
+  label: pluginMessage("config.token", "Bot token"),
+};
+
+throw new PluginLocalizedError(
+  pluginMessage("auth.timeout", "Login timed out after {{seconds}} seconds. Please retry.", {
+    seconds: 30,
+  }),
+  { cause: originalError },
+);
+```
+
+文案通过 `{ key, fallback, params? }` 跨进程传递。参数支持字符串、数字、布尔值及嵌套文案。
+多行动态命令回复使用 `joinPluginText(parts, separator?)` 组合，保留文案直到展示或发送时
+再翻译。各插件的翻译资源独立，不能覆盖 Cola 或其他插件。
+
+桌面按当前界面语言渲染，切换语言时已显示的文案同步更新。服务端在发送命令回复和授权
+提示时使用 Cola 设置的语言。插件直接调用平台 API 发送提示时，在发送处调用
+`await ctx.runtime.i18n!.text(message)`；支持此功能的宿主会提供该可选运行时能力。
+
+每个字段依次回退：精确匹配当前语言 → `en` → 原有默认文案。空字符串视为缺失，允许
+只翻译部分字段或语言。简体和繁体不会互相回退。当前界面支持 `en`、`es`、`ja`、`ko`、
+`zh-CN`、`zh-TW`。语言代码匹配忽略大小写，注册时建议使用标准写法。
+
+错误界面显示本地化说明，并提供可展开的原始详情。
+`ChannelStatusResult.details` 用于传递独立于 `message` 的原始状态诊断。无法识别的错误使用通用本地化说明，
+日志保留原始错误。运行时语言文件缺失或损坏会记录诊断并回退，不会阻止插件加载。
+发布校验会拦截文件缺失、JSON 错误、非字符串值、越界路径以及各语言间不一致的
+`{{parameter}}` 占位参数。
+
+`resolvePluginText`、`validatePluginCatalog`、`validatePluginTranslations` 是纯函数。
+Node 工具可从 `@marswave/cola-plugin-sdk/i18n-files` 导入 `loadPluginTranslations`：
+发布时传 `{ strict: true }`，运行时传 `{ onWarning }` 以保留其他有效语言。
+
+先发布 SDK 0.0.5，再发布依赖它的渠道。`cola.plugin.minColaVersion` 必须设置为首次支持
+此功能的 Cola 正式版本。`cola-plugins` 的 `pnpm build:registry` 校验所有已声明的语言
+文件，只把名称和简介翻译放进商店索引；打包时复制全部注册文件，安装后宿主读取完整字典。

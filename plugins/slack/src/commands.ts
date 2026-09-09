@@ -1,16 +1,14 @@
 import { pluginMessage as m, joinPluginText as join } from "@marswave/cola-plugin-sdk";
 import type { PluginCommandDefinition, PluginText } from "@marswave/cola-plugin-sdk";
-import { readTelegramConfig, redactToken } from "./config.js";
-import type { TelegramGatewayState } from "./gateway.js";
-export function createTelegramCommands(
-  getState: () => TelegramGatewayState,
-): PluginCommandDefinition[] {
+import { readSlackConfig, redactToken } from "./config.js";
+import type { SlackGatewayState } from "./gateway.js";
+export function createSlackCommands(getState: () => SlackGatewayState): PluginCommandDefinition[] {
   return [
     {
-      name: "telegram",
-      aliases: ["tg"],
+      name: "slack",
+
       description: m("command.description", "{{name}} status and configuration", {
-        name: m("label", "Telegram"),
+        name: m("label", "Slack"),
       }),
       args: [
         {
@@ -25,13 +23,13 @@ export function createTelegramCommands(
         const subcommand = ctx.args.trim() || "status";
         const state = getState();
         if (subcommand === "status") {
-          const bot = state.me?.username ? `@${state.me.username}` : (state.me?.first_name ?? "—");
+          const bot = state.botName ? `@${state.botName}` : (state.botUserId ?? "—");
           const status = state.connected
             ? m("status.connected", "Connected")
             : m("status.disconnected", "Disconnected");
-          const time = state.lastUpdateAt;
+          const time = state.lastEventAt;
           const lines: PluginText[] = [
-            m("command.statusTitle", "**{{name}} Status**", { name: m("label", "Telegram") }),
+            m("command.statusTitle", "**{{name}} Status**", { name: m("label", "Slack") }),
             "",
             m("command.statusLine", "- Status: {{status}}", { status }),
             m("command.botLine", "- Bot: {{bot}}", { bot }),
@@ -39,7 +37,7 @@ export function createTelegramCommands(
               time: time ? new Date(time).toISOString() : m("state.never", "Never"),
             }),
           ];
-
+          lines.push(m("command.teamLine", "- Team: {{team}}", { team: state.teamId ?? "—" }));
           if (state.lastError)
             lines.push(
               m("command.errorLine", "- Error details: {{error}}", { error: state.lastError }),
@@ -47,12 +45,10 @@ export function createTelegramCommands(
           return { reply: join(lines) };
         }
         if (subcommand === "config") {
-          const config = readTelegramConfig(ctx.config);
+          const config = readSlackConfig(ctx.config);
           return {
             reply: join([
-              m("command.configTitle", "**{{name}} Configuration**", {
-                name: m("label", "Telegram"),
-              }),
+              m("command.configTitle", "**{{name}} Configuration**", { name: m("label", "Slack") }),
               "",
               m("command.tokenLine", "- Bot token: {{token}}", {
                 token: config.botToken
@@ -60,13 +56,15 @@ export function createTelegramCommands(
                   : m("state.missing", "Missing"),
               }),
               m("command.allowedLine", "- Allowed IDs: {{count}}", {
-                count: config.allowedChatIds.size || m("state.missing", "Missing"),
+                count: config.allowedIds.size || m("state.missing", "Missing"),
               }),
-              m("command.timeoutLine", "- Polling timeout: {{seconds}} s", {
-                seconds: config.pollingTimeoutSeconds,
+              m("command.appTokenLine", "- App token: {{token}}", {
+                token: config.appToken
+                  ? redactToken(config.appToken)
+                  : m("state.missing", "Missing"),
               }),
-              m("command.dropLine", "- Drop pending updates: {{value}}", {
-                value: config.dropPendingUpdates ? m("state.yes", "Yes") : m("state.no", "No"),
+              m("command.ignoreLine", "- Ignore bot messages: {{value}}", {
+                value: config.ignoreBotMessages ? m("state.yes", "Yes") : m("state.no", "No"),
               }),
             ]),
           };

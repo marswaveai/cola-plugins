@@ -1,7 +1,7 @@
 {
-  "name": "cola-plugin-feishu",
+  "name": "cola-plugin-slack",
   "version": "0.2.0",
-  "description": "Feishu/Lark channel plugin for Cola",
+  "description": "Slack channel plugin for Cola",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -12,8 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.61.1",
-    "@marswave/cola-plugin-sdk": "0.0.5"
+    "@marswave/cola-plugin-sdk": "0.0.5",
+    "@slack/socket-mode": "^2.0.4",
+    "@slack/web-api": "^7.9.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -25,18 +26,15 @@
   },
   "cola": {
     "plugin": {
-      "id": "feishu",
+      "id": "slack",
       "entry": "./dist/index.js",
       "minColaVersion": "1.4.5"
     },
     "channel": {
-      "label": "Feishu",
-      "description": "Feishu/Lark messaging via official bot API",
-      "iconUrl": "https://www.feishu.cn/favicon.ico",
-      "aliases": [
-        "lark"
-      ],
-      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/feishu/README.md",
+      "label": "Slack",
+      "description": "Slack messaging via Socket Mode",
+      "iconUrl": "https://a.slack-edge.com/80588/marketing/img/meta/slack_hash_256.png",
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/slack/README.md",
       "i18n": {
         "en": "./locales/en.json",
         "es": "./locales/es.json",

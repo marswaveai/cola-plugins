@@ -1,3 +1,4 @@
+import { pluginMessage as m } from "@marswave/cola-plugin-sdk";
 import { defineChannel } from "@marswave/cola-plugin-sdk";
 import type { ChannelStatusResult, OutboundContext } from "@marswave/cola-plugin-sdk";
 import { createTelegramCommands } from "./commands.js";
@@ -18,6 +19,19 @@ export default defineChannel<TelegramGatewayState>({
     description: "Telegram messaging via Bot API long polling",
     markdownCapable: true,
   },
+  unauthorizedHint(target) {
+    return target.kind === "group"
+      ? m(
+          "auth.group",
+          "This group is not authorized. Ask an administrator to run:\n```\ncola channel allow-group {{plugin}} {{id}}\n```",
+          { plugin: "telegram", id: target.id },
+        )
+      : m(
+          "auth.user",
+          "Access is not authorized. Ask an administrator to run:\n```\ncola channel allow {{plugin}} {{id}}\n```",
+          { plugin: "telegram", id: target.id },
+        );
+  },
   capabilities: {
     receive: { text: true },
     send: { text: true, markdown: true, typing: true },
@@ -28,7 +42,7 @@ export default defineChannel<TelegramGatewayState>({
       fields: [
         {
           key: "botToken",
-          label: "Bot token",
+          label: m("config.botToken", "Bot token"),
           type: "password",
           required: true,
           secret: true,
@@ -36,11 +50,14 @@ export default defineChannel<TelegramGatewayState>({
         },
         {
           key: "allowedChatIds",
-          label: "Allowed chat IDs",
+          label: m("config.allowedChats", "Allowed chat IDs"),
           type: "text",
           required: true,
           placeholder: "-1001234567890,123456789",
-          description: "Comma-separated Telegram chat IDs accepted by the plugin.",
+          description: m(
+            "config.telegramHelp",
+            "Comma-separated Telegram chat IDs accepted by the plugin.",
+          ),
         },
         // Only Bot token and Allowed chat IDs are exposed in the config UI. The
         // remaining options (pollingTimeoutSeconds, dropPendingUpdates,

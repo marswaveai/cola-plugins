@@ -1,3 +1,5 @@
+import { pluginMessage, resolvePluginText } from "@marswave/cola-plugin-sdk";
+import type { PluginRuntime } from "@marswave/cola-plugin-sdk";
 import type * as lark from "@larksuiteoapi/node-sdk";
 import type { DeliverFn, PluginLogger } from "@marswave/cola-plugin-sdk";
 import { parseMessage } from "./message-parser.js";
@@ -12,9 +14,13 @@ import {
 import { sendText } from "../outbound/send.js";
 
 /** Reply sent to a group @mention while group chat is disabled. */
-const GROUP_DISABLED_NOTICE = "暂不支持群聊";
+const GROUP_DISABLED_NOTICE = pluginMessage(
+  "channel.groupDisabled",
+  "Group chat is not enabled. Please message the bot directly.",
+);
 
 export type EventHandlerDeps = {
+  i18n?: PluginRuntime["i18n"];
   client: lark.Client;
   accountId: string;
   logger: PluginLogger;
@@ -106,7 +112,9 @@ export function registerMessageHandler(
             await sendText(
               client,
               `chat:${message.chat_id}`,
-              GROUP_DISABLED_NOTICE,
+              deps.i18n
+                ? await deps.i18n.text(GROUP_DISABLED_NOTICE)
+                : resolvePluginText(GROUP_DISABLED_NOTICE, undefined, "en"),
               chatMap,
               logger,
             );

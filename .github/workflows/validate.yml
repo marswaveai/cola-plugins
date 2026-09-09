@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Validate plugin translations
+        run: pnpm build:registry
+
       - name: Detect changed plugins
         id: changed
         run: |

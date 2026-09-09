@@ -1,6 +1,6 @@
 {
   "name": "cola-plugin-telegram",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Telegram Bot channel plugin for Cola",
   "license": "Apache-2.0",
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marswave/cola-plugin-sdk": "0.0.3"
+    "@marswave/cola-plugin-sdk": "0.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -25,7 +25,8 @@
   "cola": {
     "plugin": {
       "id": "telegram",
-      "entry": "./dist/index.js"
+      "entry": "./dist/index.js",
+      "minColaVersion": "1.4.5"
     },
     "channel": {
       "label": "Telegram",
@@ -34,7 +35,15 @@
       "aliases": [
         "tg"
       ],
-      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/telegram/README.md"
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/telegram/README.md",
+      "i18n": {
+        "en": "./locales/en.json",
+        "es": "./locales/es.json",
+        "ja": "./locales/ja.json",
+        "ko": "./locales/ko.json",
+        "zh-CN": "./locales/zh-CN.json",
+        "zh-TW": "./locales/zh-TW.json"
+      }
     }
   }
 }

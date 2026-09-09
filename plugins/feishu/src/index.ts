@@ -1,3 +1,4 @@
+import { pluginMessage as m } from "@marswave/cola-plugin-sdk";
 import { defineChannel } from "@marswave/cola-plugin-sdk";
 import type {
   GatewayContext,
@@ -52,6 +53,19 @@ export default defineChannel<FeishuGatewayState>({
     markdownCapable: true,
   },
 
+  unauthorizedHint(target) {
+    return target.kind === "group"
+      ? m(
+          "auth.group",
+          "This group is not authorized. Ask an administrator to run:\n```\ncola channel allow-group {{plugin}} {{id}}\n```",
+          { plugin: "feishu", id: target.id },
+        )
+      : m(
+          "auth.user",
+          "Access is not authorized. Ask an administrator to run:\n```\ncola channel allow {{plugin}} {{id}}\n```",
+          { plugin: "feishu", id: target.id },
+        );
+  },
   capabilities: {
     receive: {
       text: true,
@@ -77,7 +91,7 @@ export default defineChannel<FeishuGatewayState>({
         {
           key: "appId",
           path: ["accounts", "default", "appId"],
-          label: "App ID",
+          label: m("config.appId", "App ID"),
           type: "text",
           required: true,
           placeholder: "cli_xxx",
@@ -85,7 +99,7 @@ export default defineChannel<FeishuGatewayState>({
         {
           key: "appSecret",
           path: ["accounts", "default", "appSecret"],
-          label: "App Secret",
+          label: m("config.appSecret", "App Secret"),
           type: "password",
           required: true,
           secret: true,
@@ -93,11 +107,11 @@ export default defineChannel<FeishuGatewayState>({
         {
           key: "domain",
           path: ["accounts", "default", "domain"],
-          label: "Domain",
+          label: m("config.domain", "Domain"),
           type: "select",
           defaultValue: "feishu",
           options: [
-            { label: "Feishu", value: "feishu" },
+            { label: m("label", "Feishu"), value: "feishu" },
             { label: "Lark", value: "lark" },
           ],
         },
@@ -106,25 +120,6 @@ export default defineChannel<FeishuGatewayState>({
         // remains in FeishuPluginConfig and can be flipped via channels.json if needed.
       ],
     },
-  },
-
-  unauthorizedHint(target) {
-    if (target.kind === "group") {
-      return [
-        "这个群还没有被授信，无法使用 Cola。",
-        "请管理员执行：",
-        "```",
-        `cola channel allow-group feishu ${target.id}`,
-        "```",
-      ].join("\n");
-    }
-    return [
-      "你还没有被授信，无法使用 Cola。",
-      "请管理员执行：",
-      "```",
-      `cola channel allow feishu ${target.id}`,
-      "```",
-    ].join("\n");
   },
 
   auth: createFeishuAuth(),
@@ -161,6 +156,7 @@ export default defineChannel<FeishuGatewayState>({
       for (const [accountId, acctConfig] of accounts) {
         try {
           const handle = await startMonitor({
+            i18n: ctx.runtime.i18n,
             accountId,
             config: acctConfig,
             deliver: ctx.deliver,
@@ -201,12 +197,16 @@ export default defineChannel<FeishuGatewayState>({
     getStatus(ctx: GatewayContext<FeishuGatewayState>): ChannelStatusResult {
       const monitors = ctx.state.monitors;
       if (!monitors || monitors.size === 0) {
-        return { connected: false, configured: false, message: "No accounts configured" };
+        return {
+          connected: false,
+          configured: false,
+          message: m("status.noAccounts", "No accounts configured"),
+        };
       }
       return {
         connected: true,
         configured: true,
-        message: `${monitors.size} account(s) connected`,
+        message: m("status.accounts", "Connected accounts: {{count}}", { count: monitors.size }),
       };
     },
   },
