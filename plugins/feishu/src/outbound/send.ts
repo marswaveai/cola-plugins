@@ -114,18 +114,52 @@ export async function sendReaction(
   }
 }
 
-function resolveReceiver(
+/**
+ * Delivery targets reach the plugin in more than one shape: `chat:<chat_id>`,
+ * `user:<open_id>`, or a bare Feishu id (`oc_...` / `ou_...`). Some delivery
+ * paths — notably cron runs redelivered after a restart — hand over the raw chat
+ * id with no prefix at all. Such a value must still be sent as a `chat_id`:
+ * sending it as an `open_id` makes Feishu reject the message with
+ * `99992361 open_id cross app`.
+ */
+export function normalizeDeliveryTarget(
+  deliveryTo: string,
+): { id: string; kind: "chat" | "user" } | undefined {
+  const raw = deliveryTo.trim();
+  if (!raw) return undefined;
+
+  let prefixedKind: "chat" | "user" | undefined;
+  let id = raw;
+  if (raw.startsWith("chat:")) {
+    prefixedKind = "chat";
+    id = raw.slice("chat:".length);
+  } else if (raw.startsWith("user:")) {
+    prefixedKind = "user";
+    id = raw.slice("user:".length);
+  }
+  if (!id) return undefined;
+
+  // The id prefix is the source of truth: a chat id is never a valid open_id.
+  if (id.startsWith("oc_")) return { id, kind: "chat" };
+  if (id.startsWith("ou_")) return { id, kind: "user" };
+  return { id, kind: prefixedKind ?? "user" };
+}
+
+export function resolveReceiver(
   deliveryTo: string,
   chatMap: ChatMap,
 ): { receiveId: string; receiveIdType: "chat_id" | "open_id" } {
-  if (deliveryTo.startsWith("chat:")) {
-    return { receiveId: deliveryTo.slice("chat:".length), receiveIdType: "chat_id" };
+  const target = normalizeDeliveryTarget(deliveryTo);
+  if (!target) {
+    return { receiveId: deliveryTo, receiveIdType: "open_id" };
+  }
+  if (target.kind === "chat") {
+    return { receiveId: target.id, receiveIdType: "chat_id" };
   }
 
-  const openId = deliveryTo.startsWith("user:") ? deliveryTo.slice("user:".length) : deliveryTo;
-  const chatId = chatMap.get(openId);
+  const chatId = chatMap.get(target.id);
   if (chatId) {
     return { receiveId: chatId, receiveIdType: "chat_id" };
   }
-  return { receiveId: openId, receiveIdType: "open_id" };
+  return { receiveId: target.id, receiveIdType: "open_id" };
 }
