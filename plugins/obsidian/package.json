@@ -1,0 +1,41 @@
+{
+  "name": "cola-plugin-obsidian",
+  "version": "0.1.0",
+  "description": "Obsidian vault integration for Cola – chat with Cola inside Obsidian with full file context",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@marswave/cola-plugin-sdk": "^0.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "cola": {
+    "plugin": {
+      "id": "obsidian",
+      "entry": "./dist/index.js"
+    },
+    "channel": {
+      "label": "Obsidian",
+      "description": "Chat with Cola inside Obsidian with full vault context",
+      "aliases": ["ob"],
+      "iconUrl": "https://cdn.simpleicons.org/obsidian/7C3AED",
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/obsidian/README.md"
+    }
+  }
+}
