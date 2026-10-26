@@ -36,6 +36,9 @@ jobs:
           OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_SECRET }}
           OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
+          CN_OSS_ENDPOINT: ${{ secrets.ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT }}
+          CN_OSS_REGION: ${{ secrets.ALIYUN_COLA_CN_OSS_REGION }}
+          CN_OSS_BUCKET: ${{ secrets.ALIYUN_COLA_CN_OSS_BUCKET }}
         run: |
           missing=()
           [ -n "$OSS_ENDPOINT" ] || missing+=(ALIYUN_COLAOS_OSS_ENDPOINT)
@@ -43,6 +46,9 @@ jobs:
           [ -n "$OSS_ACCESS_KEY_ID" ] || missing+=(ALIYUN_HAIWAI_ACCESS_KEY_ID)
           [ -n "$OSS_ACCESS_KEY_SECRET" ] || missing+=(ALIYUN_HAIWAI_ACCESS_KEY_SECRET)
           [ -n "$OSS_BUCKET" ] || missing+=(ALIYUN_COLAOS_OSS_BUCKET)
+          [ -n "$CN_OSS_ENDPOINT" ] || missing+=(ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT)
+          [ -n "$CN_OSS_REGION" ] || missing+=(ALIYUN_COLA_CN_OSS_REGION)
+          [ -n "$CN_OSS_BUCKET" ] || missing+=(ALIYUN_COLA_CN_OSS_BUCKET)
 
           if [ "${#missing[@]}" -ne 0 ]; then
             echo "::error::Missing required Actions secrets: ${missing[*]}"
@@ -96,7 +102,13 @@ jobs:
         if: steps.versions.outputs.releases != ''
         env:
           OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
+          CN_OSS_ENDPOINT: ${{ secrets.ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT }}
+          CN_OSS_REGION: ${{ secrets.ALIYUN_COLA_CN_OSS_REGION }}
+          CN_OSS_BUCKET: ${{ secrets.ALIYUN_COLA_CN_OSS_BUCKET }}
         run: |
+          # 国内桶禁止默认公网 endpoint,只能经绑定的 CNAME 访问
+          CN=(--endpoint "$CN_OSS_ENDPOINT" --region "$CN_OSS_REGION" --addressing-style cname)
+
           for entry in ${{ steps.versions.outputs.releases }}; do
             plugin="${entry%%:*}"
             version="${entry##*:}"
@@ -105,39 +117,64 @@ jobs:
 
             echo "=== Publishing $plugin@$version ==="
 
-            # 版本不可变:已存在则跳过(旧版不覆盖、不删除)
-            if ossutil stat "oss://$OSS_BUCKET/$key" &>/dev/null; then
-              echo "oss://$OSS_BUCKET/$key already exists, skipping"
+            # 版本不可变:两个桶各自已存在则不覆盖、不删除
+            in_global=false; in_cn=false
+            ossutil stat "oss://$OSS_BUCKET/$key" &>/dev/null && in_global=true
+            ossutil stat "oss://$CN_OSS_BUCKET/$key" "${CN[@]}" &>/dev/null && in_cn=true
+            if $in_global && $in_cn; then
+              echo "$key already exists in both buckets, skipping"
               continue
             fi
 
-            pnpm --filter "./plugins/$plugin" run build
+            if $in_global; then
+              # 已发布过的版本原样拷贝,保证两个桶字节一致
+              ossutil cp -f "oss://$OSS_BUCKET/$key" "$tarball"
+            elif $in_cn; then
+              ossutil cp -f "oss://$CN_OSS_BUCKET/$key" "$tarball" "${CN[@]}"
+            else
+              pnpm --filter "./plugins/$plugin" run build
 
-            # 打一个自包含目录(含 prod 依赖)
-            staging="staging/$plugin"
-            mkdir -p "$staging"
-            cp "plugins/$plugin/package.json" "$staging/"
-            if [ -f "plugins/$plugin/README.md" ]; then
-              cp "plugins/$plugin/README.md" "$staging/"
+              # 打一个自包含目录(含 prod 依赖)
+              staging="staging/$plugin"
+              mkdir -p "$staging"
+              cp "plugins/$plugin/package.json" "$staging/"
+              if [ -f "plugins/$plugin/README.md" ]; then
+                cp "plugins/$plugin/README.md" "$staging/"
+              fi
+              cp -r "plugins/$plugin/dist" "$staging/dist"
+              pnpm exec tsx scripts/stage-plugin-locales.ts "plugins/$plugin" "$staging"
+              (cd "$staging" && npm install --omit=dev --ignore-scripts)
+
+              tar -czf "$tarball" -C "$staging" .
+              rm -rf "$staging"
             fi
-            cp -r "plugins/$plugin/dist" "$staging/dist"
-            pnpm exec tsx scripts/stage-plugin-locales.ts "plugins/$plugin" "$staging"
-            (cd "$staging" && npm install --omit=dev --ignore-scripts)
 
-            tar -czf "$tarball" -C "$staging" .
+            if ! $in_global; then
+              ossutil cp -f "$tarball" "oss://$OSS_BUCKET/$key" \
+                --cache-control "max-age=31536000"
+            fi
+            if ! $in_cn; then
+              ossutil cp -f "$tarball" "oss://$CN_OSS_BUCKET/$key" "${CN[@]}" \
+                --cache-control "max-age=31536000"
+            fi
 
-            ossutil cp -f "$tarball" "oss://$OSS_BUCKET/$key" \
-              --cache-control "max-age=31536000"
-
-            rm -rf "$staging" "$tarball"
+            rm -f "$tarball"
           done
 
       - name: Rebuild & publish registry
         env:
           OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
+          CN_OSS_ENDPOINT: ${{ secrets.ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT }}
+          CN_OSS_REGION: ${{ secrets.ALIYUN_COLA_CN_OSS_REGION }}
+          CN_OSS_BUCKET: ${{ secrets.ALIYUN_COLA_CN_OSS_BUCKET }}
         run: |
-          pnpm build:registry
-
           # 上传 manifest 到 OSS(短缓存,保证前端及时拿到新版本)
+          # 老客户端读 files.colaos.ai,新客户端读 download.meetcola.com;下载地址各指向自己的域名
+          OSS_PUBLIC_BASE=https://files.colaos.ai pnpm build:registry
           ossutil cp -f registry.json "oss://$OSS_BUCKET/plugins/registry.json" \
+            --cache-control "no-cache"
+
+          OSS_PUBLIC_BASE=https://download.meetcola.com pnpm build:registry
+          ossutil cp -f registry.json "oss://$CN_OSS_BUCKET/plugins/registry.json" \
+            --endpoint "$CN_OSS_ENDPOINT" --region "$CN_OSS_REGION" --addressing-style cname \
             --cache-control "no-cache"
