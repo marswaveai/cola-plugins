@@ -36,9 +36,9 @@ jobs:
           OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_HAIWAI_ACCESS_KEY_SECRET }}
           OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
-          CN_OSS_ENDPOINT: ${{ secrets.ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT }}
-          CN_OSS_REGION: ${{ secrets.ALIYUN_COLA_CN_OSS_REGION }}
-          CN_OSS_BUCKET: ${{ secrets.ALIYUN_COLA_CN_OSS_BUCKET }}
+          CN_OSS_ENDPOINT: ${{ vars.ALIYUN_COLA_CN_OSS_ENDPOINT }}
+          CN_OSS_REGION: ${{ vars.ALIYUN_COLA_CN_OSS_REGION }}
+          CN_OSS_BUCKET: ${{ vars.ALIYUN_COLA_CN_OSS_BUCKET }}
         run: |
           missing=()
           [ -n "$OSS_ENDPOINT" ] || missing+=(ALIYUN_COLAOS_OSS_ENDPOINT)
@@ -46,12 +46,12 @@ jobs:
           [ -n "$OSS_ACCESS_KEY_ID" ] || missing+=(ALIYUN_HAIWAI_ACCESS_KEY_ID)
           [ -n "$OSS_ACCESS_KEY_SECRET" ] || missing+=(ALIYUN_HAIWAI_ACCESS_KEY_SECRET)
           [ -n "$OSS_BUCKET" ] || missing+=(ALIYUN_COLAOS_OSS_BUCKET)
-          [ -n "$CN_OSS_ENDPOINT" ] || missing+=(ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT)
-          [ -n "$CN_OSS_REGION" ] || missing+=(ALIYUN_COLA_CN_OSS_REGION)
-          [ -n "$CN_OSS_BUCKET" ] || missing+=(ALIYUN_COLA_CN_OSS_BUCKET)
+          [ -n "$CN_OSS_ENDPOINT" ] || missing+=("ALIYUN_COLA_CN_OSS_ENDPOINT (variable)")
+          [ -n "$CN_OSS_REGION" ] || missing+=("ALIYUN_COLA_CN_OSS_REGION (variable)")
+          [ -n "$CN_OSS_BUCKET" ] || missing+=("ALIYUN_COLA_CN_OSS_BUCKET (variable)")
 
           if [ "${#missing[@]}" -ne 0 ]; then
-            echo "::error::Missing required Actions secrets: ${missing[*]}"
+            echo "::error::Missing required Actions secrets/variables: ${missing[*]}"
             exit 1
           fi
 
@@ -102,12 +102,13 @@ jobs:
         if: steps.versions.outputs.releases != ''
         env:
           OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
-          CN_OSS_ENDPOINT: ${{ secrets.ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT }}
-          CN_OSS_REGION: ${{ secrets.ALIYUN_COLA_CN_OSS_REGION }}
-          CN_OSS_BUCKET: ${{ secrets.ALIYUN_COLA_CN_OSS_BUCKET }}
+          CN_OSS_ENDPOINT: ${{ vars.ALIYUN_COLA_CN_OSS_ENDPOINT }}
+          CN_OSS_REGION: ${{ vars.ALIYUN_COLA_CN_OSS_REGION }}
+          CN_OSS_BUCKET: ${{ vars.ALIYUN_COLA_CN_OSS_BUCKET }}
         run: |
-          # 国内桶禁止默认公网 endpoint,只能经绑定的 CNAME 访问
-          CN=(--endpoint "$CN_OSS_ENDPOINT" --region "$CN_OSS_REGION" --addressing-style cname)
+          # 国内桶禁止默认公网 endpoint;组织变量的 endpoint 是 meetcola.com,
+          # 虚拟主机寻址拼成桶绑定的 CNAME meetcola-public-prod02.meetcola.com
+          CN=(--endpoint "$CN_OSS_ENDPOINT" --region "$CN_OSS_REGION")
 
           for entry in ${{ steps.versions.outputs.releases }}; do
             plugin="${entry%%:*}"
@@ -164,9 +165,9 @@ jobs:
       - name: Rebuild & publish registry
         env:
           OSS_BUCKET: ${{ secrets.ALIYUN_COLAOS_OSS_BUCKET }}
-          CN_OSS_ENDPOINT: ${{ secrets.ALIYUN_COLA_CN_OSS_ACCELERATE_ENDPOINT }}
-          CN_OSS_REGION: ${{ secrets.ALIYUN_COLA_CN_OSS_REGION }}
-          CN_OSS_BUCKET: ${{ secrets.ALIYUN_COLA_CN_OSS_BUCKET }}
+          CN_OSS_ENDPOINT: ${{ vars.ALIYUN_COLA_CN_OSS_ENDPOINT }}
+          CN_OSS_REGION: ${{ vars.ALIYUN_COLA_CN_OSS_REGION }}
+          CN_OSS_BUCKET: ${{ vars.ALIYUN_COLA_CN_OSS_BUCKET }}
         run: |
           # 上传 manifest 到 OSS(短缓存,保证前端及时拿到新版本)
           # 老客户端读 files.colaos.ai,新客户端读 download.meetcola.com;下载地址各指向自己的域名
@@ -176,5 +177,5 @@ jobs:
 
           OSS_PUBLIC_BASE=https://download.meetcola.com pnpm build:registry
           ossutil cp -f registry.json "oss://$CN_OSS_BUCKET/plugins/registry.json" \
-            --endpoint "$CN_OSS_ENDPOINT" --region "$CN_OSS_REGION" --addressing-style cname \
+            --endpoint "$CN_OSS_ENDPOINT" --region "$CN_OSS_REGION" \
             --cache-control "no-cache"
