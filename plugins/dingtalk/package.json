@@ -1,0 +1,51 @@
+{
+  "name": "cola-plugin-dingtalk",
+  "version": "0.2.0",
+  "description": "DingTalk channel plugin for Cola",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@marswave/cola-plugin-sdk": "0.0.5",
+    "dingtalk-stream": "2.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "cola": {
+    "plugin": {
+      "id": "dingtalk",
+      "entry": "./dist/index.js",
+      "minColaVersion": "1.4.5"
+    },
+    "channel": {
+      "label": "DingTalk",
+      "description": "DingTalk messaging via official enterprise bot (Stream mode)",
+      "iconUrl": "https://raw.githubusercontent.com/marswaveai/cola-plugins/main/plugins/dingtalk/assets/icon.png",
+      "aliases": [
+        "dingtalk"
+      ],
+      "docsPath": "https://github.com/marswaveai/cola-plugins/blob/main/plugins/dingtalk/README.md",
+      "i18n": {
+        "en": "./locales/en.json",
+        "es": "./locales/es.json",
+        "ja": "./locales/ja.json",
+        "ko": "./locales/ko.json",
+        "zh-CN": "./locales/zh-CN.json",
+        "zh-TW": "./locales/zh-TW.json"
+      }
+    }
+  }
+}
